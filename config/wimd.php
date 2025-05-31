@@ -31,7 +31,6 @@ return [
         // Show recommendations
         'recommendations' => true,
     ],
-
     /*
     |--------------------------------------------------------------------------
     | Styling Options
@@ -60,11 +59,11 @@ return [
         'console_width' => 100,
         'border_style' => 'rounded',
         'progress_format' => [
-            'base' => '🍃 [%bar%] %percent:3s%% | ⏳ %elapsed:6s% | ⏱️ %remaining:-6s% | seeding %max%',
-            'full' => ' | 🧠 %memory:6s%'
+            'bar' => '[%bar%] %percent:3s%%',
+            'base' => '%elapsed:6s% spend / %remaining:-6s% left',
+            'full' => ' | Memory %memory:6s%s'
         ]
     ],
-
     /*
     |--------------------------------------------------------------------------
     | Performance Thresholds
@@ -80,7 +79,6 @@ return [
         'average' => 100,     // Records/sec for average rating
         'slow' => 10          // Records/sec for slow rating (below is very slow)
     ],
-
     /*
     |--------------------------------------------------------------------------
     | Memory Usage Thresholds
@@ -127,7 +125,6 @@ return [
             'track_usage_over_time' => false,
         ],
     ],
-
     /*
     |--------------------------------------------------------------------------
     | Debug Options
