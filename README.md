@@ -34,7 +34,7 @@ php artisan vendor:publish --tag=wimd-config
 
 This will create a `config/wimd.php` file where you can customize the package behavior.
 
-w### Step 1
+### Step 1
 ```php
 <?php
 
