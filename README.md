@@ -1,4 +1,4 @@
-![Cover](/.github/header.png)
+![Cover](/.github/header.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/strawberrydev/wimd.svg?style=flat-square)](https://packagist.org/packages/strawberrydev/wimd)
 [![Total Downloads](https://img.shields.io/packagist/dt/strawberrydev/wimd.svg?style=flat-square)](https://packagist.org/packages/strawberrydev/wimd)
@@ -93,10 +93,16 @@ class UserSeeder extends WimdSeeder
     protected function prepare(): void
     {
         // totalItems will be overridden by fullItems or lightItems
-        // $this->totalItems = 1000;
+        
+        // By default you can use totalItems
+        $this->totalItems = 1000;
+        
+        // Or you can be more specific when doing light / full seed
         $this->fullItems = 1000000;
         $this->lightItems = 250;
-        $this->batchSize = 100;
+        
+        // You can use a specific batchSize. I.E. with heavy data.
+        $this->batchSize = 77;
     }
 
     /**
@@ -178,7 +184,7 @@ $users = $this->createWithFactory(User::class, 50);
 
 ## Output Renderers
 
-![screen shot](/.github/showcase.png)
+![showcase](/.github/showcase.jpg)
 
 WIMD includes a comprehensive output with detailed metrics and system information:
 it can be call from the command otherwhise you can implement it manually and use as you do the seeding.
@@ -213,7 +219,8 @@ class DatabaseSeeder extends Seeder
     }
 }
 ```
-Example given at the end
+
+### Report example
 ```
    INFO  WIMD SEEDING REPORT
 
@@ -259,20 +266,39 @@ Example given at the end
 
    INFO  WIMD report complete — thanks for using!
 ```
+### Loading example
+```
+   INFO  Seeding database.
 
-## Performance Ratings
+  User Seeder (Mode: full | Target: 100) ................................................................................................... RUNNING
+  [##################################################] 100% ......................................... 3 secs spend / < 1 sec left | Memory 30.0 MiBs
+  User Seeder (Items: 100 | Per second: 26.0/s) ............................................................................................... DONE
 
-WIMD rates your seeders' performance based on records per second:
+  Categories Seeder (Mode: full | Target: 5) ............................................................................................... RUNNING
+  [##################################################] 100% ........................................ < 1 sec spend / < 1 sec left | Memory 30.0 MiBs
+  Categories Seeder (Items: 5 | Per second: 291.6/s) .......................................................................................... DONE
 
-| Rating | Threshold | Description |
-|--------|-----------|-------------|
-| Excellent | > 1000 records/sec | Highly optimized seeder |
-| Good | > 500 records/sec | Well-performing seeder |
-| Average | > 100 records/sec | Acceptable performance |
-| Slow | > 10 records/sec | Needs optimization |
-| Very Slow | ≤ 10 records/sec | Critical performance issues |
+  Products Seeder (Mode: full | Target: 4) ................................................................................................. RUNNING
+  [##################################################] 100% ........................................ < 1 sec spend / < 1 sec left | Memory 30.0 MiBs
+  Products Seeder (Items: 4 | Per second: 207.0/s) ............................................................................................ DONE
 
-You can change this in the config files.
+  Tags Seeder (Mode: full | Target: 4) ..................................................................................................... RUNNING
+  [##################################################] 100% ........................................ < 1 sec spend / < 1 sec left | Memory 30.0 MiBs
+  Tags Seeder (Items: 4 | Per second: 211.6/s) ................................................................................................ DONE
+
+  ProductTag Seeder (Mode: full | Target: 4) ............................................................................................... RUNNING
+  [##################################################] 100% ........................................ < 1 sec spend / < 1 sec left | Memory 30.0 MiBs
+  ProductTag Seeder (Items: 4 | Per second: 33.7/s) ........................................................................................... DONE
+
+  UserDetails Seeder (Mode: full | Target: 100) ............................................................................................ RUNNING
+  [##################################################] 100% ........................................ < 1 sec spend / < 1 sec left | Memory 30.0 MiBs
+  UserDetails Seeder (Items: 100 | Per second: 2,460.5/s) ..................................................................................... DONE
+
+  Reviews Seeder (Mode: full | Target: 1000) ............................................................................................... RUNNING
+  [##################################################] 100% ........................................ < 1 sec spend / < 1 sec left | Memory 32.0 MiBs
+  Reviews Seeder (Items: 1,000 | Per second: 17,672.5/s) ...................................................................................... DONE
+
+```
 
 ## Contributing
 
@@ -282,4 +308,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
 
-![Footer](/.github/footer.png)
+## Note
+
+I do not own the rights to Doom Guy or any intellectual property related to the DOOM franchise. This project is purely a reference to the WAD file format.
+
+![Footer](/.github/footer.jpg)

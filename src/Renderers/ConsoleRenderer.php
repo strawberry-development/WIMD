@@ -76,26 +76,38 @@ class ConsoleRenderer extends BaseRenderer
      */
     public function renderReport(): void
     {
-        $this->writeOutput(
-            $this->createTitleBox(),
+        $displaySetting = $this->config->getDisplaySettings();
 
-            // Performance
-            $this->performanceRenderer->renderMetricsSummary(),
-            $this->performanceRenderer->renderPerformanceDistribution(),
-            $this->performanceRenderer->renderPerformanceChart(),
+        $output = [$this->createTitleBox()];
 
-            // Data
-            $this->dataRenderer->renderDetailedTable(),
+        // Performance
+        $output[] = $this->performanceRenderer->renderMetricsSummary();
 
-            // System
-            $this->systemRenderer->renderHealthCheck(),
-            $this->systemRenderer->renderSystemInfo(),
+        // Performance Charts
+        if ($displaySetting['performance_charts'] ?? true) {
+            $output[] = $this->performanceRenderer->renderPerformanceDistribution();
+            $output[] = $this->performanceRenderer->renderPerformanceChart();
+        }
 
-            // Recommendation
-            $this->recommendationRenderer->renderRecommendations(),
+        // Data
+        if ($displaySetting['detailed_table'] ?? true) {
+            $output[] = $this->dataRenderer->renderDetailedTable();
+        }
 
-            "\n",
-            $this->createFooter()
-        );
+        // System
+        if ($displaySetting['system_info'] ?? true) {
+            $output[] = $this->systemRenderer->renderHealthCheck();
+            $output[] = $this->systemRenderer->renderSystemInfo();
+        }
+
+        // Recommendations
+        if ($displaySetting['recommendations'] ?? true) {
+            $output[] = $this->recommendationRenderer->renderRecommendations();
+        }
+
+        $output[] = "\n";
+        $output[] = $this->createFooter();
+
+        $this->writeOutput(...$output);
     }
 }

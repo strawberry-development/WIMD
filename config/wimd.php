@@ -46,22 +46,14 @@ return [
         'use_emojis' => true,
         // Use colors in output
         'use_colors' => true,
-        // Default theme colors
-        'theme' => [
-            'primary' => 'green',
-            'secondary' => 'blue',
-            'success' => 'green',
-            'warning' => 'yellow',
-            'danger' => 'red',
-            'neutral' => 'white',
-            'muted' => 'gray',
-        ],
-        'console_width' => 100,
+
+        // Obsolete
         'border_style' => 'rounded',
+
         'progress_format' => [
             'bar' => '[%bar%] %percent:3s%%',
             'base' => '%elapsed:6s% spend / %remaining:-6s% left',
-            'full' => ' | Memory %memory:6s%s'
+            'full' => '| Memory %memory:6s%s'
         ]
     ],
     /*
@@ -79,6 +71,7 @@ return [
         'average' => 100,     // Records/sec for average rating
         'slow' => 10          // Records/sec for slow rating (below is very slow)
     ],
+
     /*
     |--------------------------------------------------------------------------
     | Memory Usage Thresholds
@@ -125,6 +118,7 @@ return [
             'track_usage_over_time' => false,
         ],
     ],
+
     /*
     |--------------------------------------------------------------------------
     | Debug Options

@@ -148,12 +148,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
         $this->formatBase = config(
             'wimd.styling.progress_format.base',
-            '⏱️ %elapsed:6s% spend / %estimated:-6s% left'
+            '%elapsed:6s% spend / %remaining:-6s% left'
         );
 
-        $this->formatCompletion = config(
+        $this->formatCompletion = " " . config(
             'wimd.styling.progress_format.full',
-            ' | 🧠 %memory:6s%'
+            '| Memory %memory:6s%s'
         );
     }
 
