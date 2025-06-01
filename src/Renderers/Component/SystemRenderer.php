@@ -1,7 +1,6 @@
 <?php
 namespace Wimd\Renderers\Component;
 
-use Wimd\Model\DataMetric;
 use Wimd\Support\EmojiRegistry;
 
 /**
@@ -78,22 +77,14 @@ class SystemRenderer extends Component
         // System information
         $output[] = $this->createSectionHeader("SYSTEM INFORMATION");
 
-        $dbEmoji = EmojiRegistry::getEmoji('database');
-        $envEmoji = EmojiRegistry::getEmoji('environment');
-        $memEmoji = EmojiRegistry::getEmoji('memory');
-        $timeEmoji = EmojiRegistry::getEmoji('clock');
-        $phpEmoji = EmojiRegistry::getEmoji('php');
-        $laravelEmoji = EmojiRegistry::getEmoji('laravel');
-        $osEmoji = EmojiRegistry::getEmoji('computer');
-
         // Enhanced system information
-        $output[] = "{$osEmoji} <fg=white;options=bold>Operating System:</> {$sysInfo['os']} <fg=gray>({$sysInfo['php_os']})</>";
-        $output[] = "{$dbEmoji} <fg=white;options=bold>Database:</> {$sysInfo['database']} <fg=gray>(Driver: {$sysInfo['db_driver']})</>";
-        $output[] = "{$envEmoji} <fg=white;options=bold>Environment:</> {$sysInfo['environment']} <fg=gray>(App: {$sysInfo['app_name']})</>";
-        $output[] = "{$memEmoji} <fg=white;options=bold>Memory Usage:</> {$sysInfo['memory']} <fg=gray>(Peak: {$sysInfo['peak_memory']})</>";
-        $output[] = "{$timeEmoji} <fg=white;options=bold>Time:</> {$sysInfo['time']} <fg=gray>({$sysInfo['timezone']})</>";
-        $output[] = "{$phpEmoji} <fg=white;options=bold>PHP Version:</> {$sysInfo['php_version']}";
-        $output[] = "{$laravelEmoji} <fg=white;options=bold>Laravel Version:</> {$sysInfo['laravel_version']}";
+        $output[] = "<fg=white;options=bold>Operating System:</> {$sysInfo['os']} <fg=gray>({$sysInfo['php_os']})</>";
+        $output[] = "<fg=white;options=bold>Database:</> {$sysInfo['database']} <fg=gray>(Driver: {$sysInfo['db_driver']})</>";
+        $output[] = "<fg=white;options=bold>Environment:</> {$sysInfo['environment']} <fg=gray>(App: {$sysInfo['app_name']})</>";
+        $output[] = "<fg=white;options=bold>Memory Usage:</> {$sysInfo['memory']} <fg=gray>(Peak: {$sysInfo['peak_memory']})</>";
+        $output[] = "<fg=white;options=bold>Time:</> {$sysInfo['time']} <fg=gray>({$sysInfo['timezone']})</>";
+        $output[] = "<fg=white;options=bold>PHP Version:</> {$sysInfo['php_version']}";
+        $output[] = "<fg=white;options=bold>Laravel Version:</> {$sysInfo['laravel_version']}";
 
         return implode("\n", $output);
     }
@@ -210,7 +201,9 @@ class SystemRenderer extends Component
      */
     protected function formatHealthCheckResult(array $check): string
     {
-        $emoji = EmojiRegistry::getEmoji($this->severityEmojis[$check['severity']]);
+        $emoji = $this->config->isEmojisEnabled()
+            ? EmojiRegistry::getEmoji($this->severityEmojis[$check['severity']])
+            : '';
         $color = $this->severityColors[$check['severity']];
         $output = [];
         $details = null;

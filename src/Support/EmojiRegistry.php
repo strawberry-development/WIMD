@@ -10,59 +10,10 @@ class EmojiRegistry
      * @var array<string, string>
      */
     private static array $emojis = [
-        'time' => '⏱️',
-        'records' => '📊',
-        'performance' => '⚡',
-        'rating' => '🏆',
-        'fastest' => '🚀',
-        'slowest' => '🐢',
-        'database' => '💾',
-        'environment' => '🔧',
-        'memory' => '🧠',
-        'clock' => '⏰',
-        'seeding' => '🌱',
         'success' => '✅',
         'warning' => '⚠️',
         'error' => '❌',
-        'info' => 'ℹ️',
-        'debug' => '🔍',
-        'critical' => '🔥',
-        'alert' => '🚨',
-        'emergency' => '🆘',
-        'sparkles' => '✨',
-        'chart' => '📈',
-        'notice' => '📝',
-        'server' => '🖥️',
-        'cache' => '⚡',
-        'user' => '👤',
-        'users' => '👥',
-        'lock' => '🔒',
-        'unlock' => '🔓',
-        'calendar' => '📅',
-        'config' => '⚙️',
-        'mail' => '📧',
-        'search' => '🔎',
-        'cloud' => '☁️',
-        'download' => '⬇️',
-        'upload' => '⬆️',
-        'sync' => '🔄',
-        'trash' => '🗑️',
-        'edit' => '✏️',
-        'save' => '💾',
-        'refresh' => '🔄',
-        'code' => '💻',
-        'terminal' => '🖥️',
-        'php' => '🐘',
-        'sql' => '🗃️',
-        'api' => '🔌',
-        'queue' => '📦',
-        'loading' => '⏳',
-        'complete' => '🏁',
-        'pending' => '⏳',
-        'running' => '▶️',
-        'stopped' => '⏹️',
         'recommendation' => '💡',
-        'laravel' => '⚙️'
     ];
 
     /**
@@ -73,7 +24,7 @@ class EmojiRegistry
      */
     public static function getEmoji(string $context): string
     {
-        return self::$emojis[$context] ?? '[?]';
+        return self::$emojis[$context] ?? '?';
     }
 
     /**

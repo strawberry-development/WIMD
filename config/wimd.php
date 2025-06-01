@@ -40,15 +40,11 @@ return [
     |
     */
     'styling' => [
-        // Use Unicode characters for borders
-        'use_unicode' => true,
         // Use emoji characters in output
         'use_emojis' => true,
+
         // Use colors in output
         'use_colors' => true,
-
-        // Obsolete
-        'border_style' => 'rounded',
 
         'progress_format' => [
             'bar' => '[%bar%] %percent:3s%%',
@@ -56,6 +52,7 @@ return [
             'full' => '| Memory %memory:6s%s'
         ]
     ],
+
     /*
     |--------------------------------------------------------------------------
     | Performance Thresholds
