@@ -300,6 +300,10 @@ class DatabaseSeeder extends Seeder
 
 ```
 
+## Note
+
+I do not own the rights to Doom Guy or any intellectual property related to the DOOM franchise. This project is purely a reference to the WAD file format.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -307,9 +311,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
-
-## Note
-
-I do not own the rights to Doom Guy or any intellectual property related to the DOOM franchise. This project is purely a reference to the WAD file format.
 
 ![Footer](/.github/footer.jpg)
