@@ -5,10 +5,8 @@ namespace Wimd\Renderers;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wimd\config\RenderingConfig;
-use Wimd\Support\BorderStyleRegistry;
 use Wimd\Support\ConsoleFormatter;
 use Wimd\Support\EmojiRegistry;
-use Wimd\Support\LaravelConsoleLike;
 
 abstract class BaseRenderer implements RendererInterface
 {
@@ -43,22 +41,7 @@ abstract class BaseRenderer implements RendererInterface
     public function __construct(?RenderingConfig $config = null)
     {
         $this->config = $config ?? new RenderingConfig();
-
-        $this->borders = $this->resolveBorderStyle();
         $this->consoleFormatter = new ConsoleFormatter();
-    }
-
-    /**
-     * Resolve border style based on configuration
-     *
-     * @return array
-     */
-    protected function resolveBorderStyle(): array
-    {
-        return BorderStyleRegistry::getBorderStyle(
-            $this->config->getBorderStyle(),
-            $this->config->isUnicodeEnabled()
-        );
     }
 
     /**
@@ -164,34 +147,5 @@ abstract class BaseRenderer implements RendererInterface
     public function createSectionHeader(string $title): string
     {
         return "\n" . $this->consoleFormatter->customBubble($title, "REPORT") . "\n";
-    }
-
-    /**
-     * Format a labeled value with optional color and emoji
-     *
-     * @param string $label
-     * @param string $value
-     * @param string $color
-     * @param string $emojiContext
-     * @return string
-     */
-    public function formatLabeledValue(
-        string $label,
-        string $value,
-        string $color = "",
-        string $emojiContext = ""
-    ): string {
-        // Use separate emoji registry for emoji management
-        $emoji = $this->config->isEmojisEnabled()
-            ? EmojiRegistry::getEmoji($emojiContext)
-            : '';
-
-        $emojiPrefix = $emoji ? "{$emoji} " : "";
-
-        if ($color) {
-            return "{$emojiPrefix}<fg=white;options=bold>{$label}:</> {$color}{$value}</>";
-        }
-
-        return "{$emojiPrefix}<fg=white;options=bold>{$label}:</> {$value}";
     }
 }
