@@ -5,6 +5,7 @@ namespace Wimd\Template;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Psy\Exception\ThrowUpException;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -818,7 +819,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     public function setMode(string $mode): self
     {
         if (!in_array($mode, ['light', 'full'])) {
-            throw new \InvalidArgumentException("Invalid mode: {$mode}. Must be 'light' or 'full'");
+            throw new InvalidArgumentException("Invalid mode: {$mode}. Must be 'light' or 'full'");
         }
 
         $this->mode = $mode;
