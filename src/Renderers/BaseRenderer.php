@@ -2,11 +2,11 @@
 
 namespace Wimd\Renderers;
 
+use Illuminate\Support\Facades\Config;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wimd\config\RenderingConfig;
 use Wimd\Support\ConsoleFormatter;
-use Wimd\Support\EmojiRegistry;
 
 abstract class BaseRenderer implements RendererInterface
 {
@@ -31,6 +31,7 @@ abstract class BaseRenderer implements RendererInterface
     protected array $metrics = [];
     protected array $seeders = [];
     protected float $totalTime;
+    protected bool $isColored;
 
     protected ConsoleFormatter $consoleFormatter;
 
@@ -42,6 +43,8 @@ abstract class BaseRenderer implements RendererInterface
     {
         $this->config = $config ?? new RenderingConfig();
         $this->consoleFormatter = new ConsoleFormatter();
+
+        $this->isColored = Config::get('wimd.styling.use_colors', true);
     }
 
     /**
@@ -68,8 +71,7 @@ abstract class BaseRenderer implements RendererInterface
             $this->output = new BufferedOutput();
         }
 
-        // Ensure colors are enabled
-        $this->output->setDecorated(true);
+        $this->output->setDecorated($this->isColored);
 
         foreach ($texts as $text) {
             // Add padding of two spaces to each line
@@ -80,7 +82,7 @@ abstract class BaseRenderer implements RendererInterface
         }
 
         // If it's a BufferedOutput, display the contents
-        if ($this->output instanceof \Symfony\Component\Console\Output\BufferedOutput) {
+        if ($this->output instanceof BufferedOutput) {
             // Get the buffered content
             $content = $this->output->fetch();
 
