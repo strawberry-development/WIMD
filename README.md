@@ -13,8 +13,8 @@ Some features don't work yet and will be properly implemented in future updates.
 
 ## Requirements
 
-- PHP 7.4+
-- Laravel 10.0+
+- PHP 8.1+
+- Laravel 9.0+
 
 ## Installation
 
