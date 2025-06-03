@@ -21,7 +21,7 @@ Some features don't work yet and will be properly implemented in future updates.
 You can install the package via composer:
 
 ```bash
-composer require strawberrydev/wimd:dev-main
+composer require strawberrydev/wimd
 ```
 
 ## Configuration
