@@ -4,6 +4,13 @@ use Illuminate\Database\Console\Seeds\SeedCommand;
 use Illuminate\Database\ConnectionResolverInterface as Resolver;
 use Illuminate\Console\ConfirmableTrait;
 use Wimd\Facades\Wimd;
+
+/**
+ * WimdSeedCommand
+ *
+ * Extends Laravel's default SeedCommand to integrate WIMD (Where Is My Data) monitoring
+ * during database seeding operations.
+ */
 class WimdSeedCommand extends SeedCommand
 {
     use ConfirmableTrait;

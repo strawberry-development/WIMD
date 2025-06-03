@@ -654,5 +654,4 @@ class ConsoleFormatter
 
         return $paddedString;
     }
-
 }

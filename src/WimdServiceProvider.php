@@ -5,6 +5,12 @@ namespace Wimd;
 use Illuminate\Support\ServiceProvider;
 use Wimd\Console\Commands\WimdSeedCommand;
 
+/**
+ * WimdServiceProvider
+ *
+ * Registers and boots the WIMD (Where Is My Data) package within a Laravel application.
+ * Handles configuration merging, service binding for the WimdManager, and console command registration.
+ */
 class WimdServiceProvider extends ServiceProvider
 {
     public function register()

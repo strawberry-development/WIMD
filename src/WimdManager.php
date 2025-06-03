@@ -5,10 +5,20 @@ namespace Wimd;
 use Illuminate\Contracts\Foundation\Application;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use Wimd\Config\RenderingConfig;
 use Wimd\Metrics\MetricsCollector;
 use Wimd\Renderers\ConsoleRenderer;
 use Wimd\Renderers\RendererInterface;
 
+/**
+ * WimdManager
+ *
+ * This class serves as the core service behind the Wimd facade,
+ * managing the registration and execution of data seeders, tracking
+ * execution metrics, handling output display, and supporting various
+ * operational modes. It acts as an internal API for coordinating and
+ * reporting on seeding tasks within the application.
+ */
 class WimdManager
 {
     /**
@@ -62,6 +72,16 @@ class WimdManager
      */
     protected $renderer;
 
+    private RenderingConfig $config;
+
+    /**
+     * Whether the manager operates in silent mode.
+     *
+     * @var bool
+     */
+    protected bool $silent = false;
+
+
     /**
      * Create a new WIMD manager instance.
      *
@@ -73,8 +93,9 @@ class WimdManager
         $this->metrics = new MetricsCollector();
         $this->startTime = microtime(true);
 
-        // Initialize the renderer based on the config
-        $this->mode = config('wimd.mode', 'light');
+        $this->config = new RenderingConfig();
+
+        $this->mode = $this->config->getMode();
         $this->setMode($this->mode);
     }
 
@@ -82,9 +103,9 @@ class WimdManager
      * Set the output interface.
      *
      * @param OutputInterface $output
-     * @return $this
+     * @return self
      */
-    public function setOutput(OutputInterface $output)
+    public function setOutput(OutputInterface $output): self
     {
         $this->output = $output;
         $this->output->setDecorated(true);
@@ -95,10 +116,11 @@ class WimdManager
      * Set the mode for WIMD monitoring.
      *
      * @param string $mode 'light' or 'full'
-     * @return $this
+     * @return self
      */
-    public function setMode(string $mode)
+    public function setMode(string $mode): self
     {
+        // Ensure renderer is created
         $this->renderer = new ConsoleRenderer();
         $this->mode = $mode;
         return $this;
@@ -109,9 +131,9 @@ class WimdManager
      *
      * @param string $seederClass
      * @param array $options
-     * @return void
+     * @return self
      */
-    public function registerSeeder(string $seederClass, array $options = [])
+    public function registerSeeder(string $seederClass, array $options = []): self
     {
         $tableName = $this->getTableNameFromSeeder($seederClass);
 
@@ -122,6 +144,27 @@ class WimdManager
         ];
 
         $this->unregisteredSeeders = $this->findUnregisteredSeeders();
+        return $this;
+    }
+
+    /**
+     * Update metrics for a seeder.
+     *
+     * @param string $seederClass
+     * @param int $recordsAdded
+     * @param float $executionTime
+     * @return self
+     */
+    public function updateMetrics(string $seederClass, int $recordsAdded, float $executionTime): self
+    {
+        if (isset($this->seeders[$seederClass])) {
+            $this->metrics->updateSeederMetrics(
+                $this->seeders[$seederClass]['metrics'],
+                $recordsAdded,
+                $executionTime
+            );
+        }
+        return $this;
     }
 
     /**
@@ -174,7 +217,7 @@ class WimdManager
      * @param bool $forceOutput Whether to create a default output if none exists
      * @return string|null The report as a string (if using BufferedOutput)
      */
-    public function displayReport(bool $forceOutput = true)
+    public function displayReport(bool $forceOutput = true): ?string
     {
         // Calculate the total execution time
         $totalTime = microtime(true) - $this->startTime;
@@ -231,31 +274,12 @@ class WimdManager
     }
 
     /**
-     * Update metrics for a seeder.
-     *
-     * @param string $seederClass
-     * @param int $recordsAdded
-     * @param float $executionTime
-     * @return void
-     */
-    public function updateMetrics(string $seederClass, int $recordsAdded, float $executionTime)
-    {
-        if (isset($this->seeders[$seederClass])) {
-            $this->metrics->updateSeederMetrics(
-                $this->seeders[$seederClass]['metrics'],
-                $recordsAdded,
-                $executionTime
-            );
-        }
-    }
-
-    /**
      * Get table name from seeder class name.
      *
      * @param string $seederName
      * @return string
      */
-    protected function getTableNameFromSeeder(string $seederName)
+    protected function getTableNameFromSeeder(string $seederName): string
     {
         // Extract the class name without namespace
         $classNameParts = explode('\\', $seederName);
@@ -273,8 +297,52 @@ class WimdManager
      *
      * @return string
      */
-    public function getMode()
+    public function getMode(): string
     {
         return $this->mode;
+    }
+
+    /**
+     * Get the current config.
+     *
+     * @return RenderingConfig
+     */
+    public function getConfig(): RenderingConfig
+    {
+        return $this->config;
+    }
+
+    /**
+     * Get seeder metrics by class name.
+     *
+     * @param string $seederClass
+     * @return array|null
+     */
+    public function getSeederMetrics(string $seederClass): ?array
+    {
+        return $this->seeders[$seederClass]['metrics'] ?? null;
+    }
+
+    /**
+     * Get the silent mode status.
+     *
+     * @return bool
+     */
+    public function isSilent(): bool
+    {
+        return $this->silent;
+    }
+
+
+    /**
+     * Set the silent mode status.
+     *
+     * @param bool $silent
+     * @return self
+     */
+    public function setSilent(bool $silent): self
+    {
+        $this->silent = $silent;
+        return $this;
     }
 }

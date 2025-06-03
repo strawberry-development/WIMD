@@ -10,9 +10,9 @@ class DataMetric
     public float $records_per_second;
     public string $overall_rating;
     public string $rating_color;
-    public string $fastest_seeder;
+    public ?string $fastest_seeder;
     public float $max_records_per_second;
-    public string $slowest_seeder;
+    public ?string $slowest_seeder;
     public float $min_records_per_second;
     public float $avg_operations_per_seeder;
     public int $seeders_count;

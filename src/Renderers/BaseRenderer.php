@@ -5,7 +5,7 @@ namespace Wimd\Renderers;
 use Illuminate\Support\Facades\Config;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
-use Wimd\config\RenderingConfig;
+use Wimd\Config\RenderingConfig;
 use Wimd\Support\ConsoleFormatter;
 
 abstract class BaseRenderer implements RendererInterface

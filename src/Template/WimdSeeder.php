@@ -15,7 +15,13 @@ use Wimd\Contracts\WimdSeederInterface;
 use Wimd\Support\ConsoleFormatter;
 
 /**
- * Abstract base class for all WIMD seeders with advanced progress tracking and batch processing.
+ * WimdSeeder
+ *
+ * Abstract base class for all WIMD seeders, providing a standardized structure
+ * for implementing seeders with advanced progress tracking, batch processing,
+ * and performance metrics. This class extends Laravel's Seeder and integrates
+ * with the Wimd system to support consistent data seeding operations across
+ * different modules.
  */
 abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 {
@@ -107,6 +113,8 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
     protected ConsoleFormatter $consoleFormatter;
 
+    protected bool $silent;
+
     /**
      * Constructor
      */
@@ -127,9 +135,9 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
         $this->consoleFormatter = new ConsoleFormatter();
 
-
         $this->setMode(app('wimd')->getMode());
         app('wimd')->registerSeeder(static::class, $options);
+        $this->silent = app('wimd')->isSilent();
     }
 
     /**
@@ -154,9 +162,9 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         );
 
         $this->formatCompletion = " " . config(
-            'wimd.styling.progress_format.full',
-            '| Memory %memory:6s%s'
-        );
+                'wimd.styling.progress_format.full',
+                '| Memory %memory:6s%s'
+            );
     }
 
     /**
@@ -166,6 +174,22 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     {
         $this->output = $output;
         return $this;
+    }
+
+    /**
+     * Write output only if not in silent mode
+     */
+    protected function writeOutput(string|array $messages, bool $newline = false, int $options = 0): void
+    {
+        if ($this->silent) {
+            return;
+        }
+
+        if ($newline) {
+            $this->output->writeln($messages, $options);
+        } else {
+            $this->output->write($messages, false, $options);
+        }
     }
 
     /**
@@ -197,12 +221,13 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             }
         }
 
-        $text = $this->consoleFormatter->formatLine(
-            "{$seedName} Seeder gray{(Mode: {$this->mode} | Target: {$this->totalItems})}",
-            "+yellow{RUNNING}"
-        );
-        $this->output->writeln("  " . $text);
-
+        if (!$this->silent) {
+            $text = $this->consoleFormatter->formatLine(
+                "{$seedName} Seeder",
+                "gray{Mode: {$this->mode}, Target: {$this->totalItems}} +yellow{RUNNING}"
+            );
+            $this->writeOutput("  " . $text, true);
+        }
 
         // Call the prepare method to calculate totals
         try {
@@ -221,8 +246,8 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             $this->totalItems = $this->fullItems;
         }
 
-        // Start the progress bar if total items were set
-        if ($this->totalItems > 0) {
+        // Start the progress bar if total items were set and not in silent mode
+        if ($this->totalItems > 0 && !$this->silent) {
             $this->startProgress($this->totalItems, null);
         }
 
@@ -234,7 +259,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             $this->flushAllBatchCollectors();
 
             // Finish the progress bar
-            if ($this->progressBar) {
+            if ($this->progressBar && !$this->silent) {
                 // Make sure progress bar is at 100% at the end
                 if ($this->itemsProcessed < $this->totalItems) {
                     $this->advanceProgress($this->totalItems - $this->itemsProcessed);
@@ -242,29 +267,31 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
                 $this->finishProgress(null);
             }
 
-            // Create summary information
-            $itemsProcessedSummary = number_format($this->itemsProcessed);
-            $executionTime = microtime(true) - $this->seederStartTime;
-            $itemsPerSecond = ($executionTime > 0) ? number_format($this->itemsProcessed / $executionTime, 1) : 0;
+            if (!$this->silent) {
+                // Create summary information
+                $itemsProcessedSummary = number_format($this->itemsProcessed);
+                $executionTime = microtime(true) - $this->seederStartTime;
+                $itemsPerSecond = ($executionTime > 0) ? number_format($this->itemsProcessed / $executionTime, 1) : 0;
 
-            $summary = "(Items: {$itemsProcessedSummary} | Per second: {$itemsPerSecond}/s";
+                $summary = "Items: {$itemsProcessedSummary}, Per second: {$itemsPerSecond}/s";
 
-            // Add error information if any errors occurred
-            if ($this->errorCount > 0) {
-                $summary .= " | Errors: {$this->errorCount}";
-            }
-            $summary .= ")";
+                // Add error information if any errors occurred
+                if ($this->errorCount > 0) {
+                    $summary .= ", Errors: {$this->errorCount}";
+                }
+                $summary .= ")";
 
-            $text = $this->consoleFormatter->formatLine(
-                "{$seedName} Seeder gray{{$summary}}",
-                "+green{DONE}",
-                ["newline" => true]
-            );
-            $this->output->writeln('  ' . $text);
+                $text = $this->consoleFormatter->formatLine(
+                    "{$seedName} Seeder",
+                    "gray{{$summary}} +green{DONE}",
+                    ["newline" => true]
+                );
+                $this->writeOutput('  ' . $text, true);
 
-            // Show error summary if any occurred
-            if ($this->errorCount > 0) {
-                $this->output->writeln("  <fg=yellow;options=bold>⚠️  Completed with {$this->errorCount} error(s)</>");
+                // Show error summary if any occurred
+                if ($this->errorCount > 0) {
+                    $this->writeOutput("  <fg=yellow;options=bold>⚠️  Completed with {$this->errorCount} error(s)</>", true);
+                }
             }
 
             // Update metrics
@@ -272,7 +299,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             app('wimd')->updateMetrics(static::class, $this->itemsProcessed, $executionTime, $this->errorCount);
 
         } catch (Throwable $e) {
-            if ($this->progressBar) {
+            if ($this->progressBar && !$this->silent) {
                 $this->progressBar->clear();
             }
             $this->handleError("Fatal error in {$seedName} seeder", $e, true);
@@ -304,20 +331,22 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $errorMessage = $e->getMessage();
         $errorLocation = basename($e->getFile()) . ':' . $e->getLine();
 
-        // Clear progress bar if it exists
-        if ($this->progressBar) {
+        // Clear progress bar if it exists and not in silent mode
+        if ($this->progressBar && !$this->silent) {
             $this->progressBar->clear();
         }
 
-        // Output error details
-        $this->output->writeln([
-            "",
-            "  <fg=red;options=bold>❌ {$errorType}: {$message}</>",
-            "  <fg=red>{$errorMessage}</>",
-            "  <fg=gray>Location: {$errorLocation}</>"
-        ]);
+        // Output error details only if not in silent mode
+        if (!$this->silent) {
+            $this->writeOutput([
+                "",
+                "  <fg=red;options=bold>❌ {$errorType}: {$message}</>",
+                "  <fg=red>{$errorMessage}</>",
+                "  <fg=gray>Location: {$errorLocation}</>"
+            ], true);
+        }
 
-        // Log the full error with stack trace
+        // Always log the full error with stack trace regardless of silent mode
         Log::error("{$message}: {$errorMessage}", [
             'exception' => $e,
             'seeder' => static::class
@@ -332,8 +361,8 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             );
         }
 
-        // Restart progress bar if needed
-        if ($this->progressBar && !$isFatal) {
+        // Restart progress bar if needed and not in silent mode
+        if ($this->progressBar && !$isFatal && !$this->silent) {
             $this->progressBar->display();
         }
     }
@@ -362,8 +391,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function startProgress(int $total, ?string $message = 'Seeding data: '): void
     {
+        if ($this->silent) {
+            return;
+        }
+
         if ($message) {
-            $this->output->writeln($message);
+            $this->writeOutput($message, true);
         }
         $this->progressBar = new WindProgressBar($this->output, $total);
         $this->progressBar->setRedrawFrequency(max(1, min(100, intval($total / 100))));
@@ -388,7 +421,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function advanceProgress(int $step = 1): void
     {
-        if ($this->progressBar) {
+        if ($this->progressBar && !$this->silent) {
             $this->progressBar->advance($step);
 
             // Force recalculation of time estimates
@@ -406,11 +439,11 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function finishProgress(?string $message = 'Seeding completed!'): void
     {
-        if ($this->progressBar) {
+        if ($this->progressBar && !$this->silent) {
             $this->progressBar->finish();
-            $this->output->writeln('');
+            $this->writeOutput('', true);
             if ($message) {
-                $this->output->writeln($message);
+                $this->writeOutput($message, true);
             }
         }
     }
@@ -879,5 +912,22 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     {
         $this->batchSize = $size;
         return $this;
+    }
+
+    /**
+     * Set silent mode
+     */
+    public function setSilent(bool $silent): self
+    {
+        $this->silent = $silent;
+        return $this;
+    }
+
+    /**
+     * Check if seeder is in silent mode
+     */
+    public function isSilent(): bool
+    {
+        return $this->silent;
     }
 }
