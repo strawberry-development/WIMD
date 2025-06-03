@@ -127,6 +127,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
         $this->consoleFormatter = new ConsoleFormatter();
 
+
         $this->setMode(app('wimd')->getMode());
         app('wimd')->registerSeeder(static::class, $options);
     }

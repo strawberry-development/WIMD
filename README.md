@@ -8,7 +8,7 @@
 Have you ever wondering where is your data while seeding ? Me too, that's why there is WIMD (Where Is My Data), a Laravel package that enhances your database seeding process with monitoring. It provides real-time tracking of seeding performance, detailed metrics, and insightful reporting to help you optimize your database seeding operations.
 
 ## Warning
-**This is the first release and *not a stable version*. It is meant to showcase the current state of the project and its progress. Currently, the project works well on Linux distributions, but I have encountered several problems on Windows. Updates will be made.**
+**This is the first release and *not a stable version*. It is meant to showcase the current state of the project and its progress. Updates will be made.**
 Some features don't work yet and will be properly implemented in future updates.
 
 ## Requirements

@@ -32,21 +32,45 @@ class ConsoleFormatter
 
     /**
      * Auto-detect terminal width or fall back to default
+     * Fixed version that properly handles Windows environments
      */
     private function detectTerminalWidth(): int
     {
-        if (function_exists('exec')) {
-            $width = exec('tput cols 2>/dev/null');
-            if (is_numeric($width) && $width > self::MIN_LINE_WIDTH) {
-                return min((int)$width, self::DEFAULT_LINE_WIDTH);
-            }
-        }
-
+        // First try environment variables (works on all platforms)
         $envWidth = getenv('COLUMNS');
         if ($envWidth && is_numeric($envWidth) && $envWidth > self::MIN_LINE_WIDTH) {
             return min((int)$envWidth, self::DEFAULT_LINE_WIDTH);
         }
 
+        // Try to detect terminal width using platform-appropriate commands
+        if (function_exists('exec')) {
+            $width = null;
+
+            if (PHP_OS_FAMILY === 'Windows') {
+                // Windows: Use mode command to get console info
+                $output = [];
+                $return_var = 0;
+                @exec('mode con 2>nul', $output, $return_var);
+
+                if ($return_var === 0) {
+                    foreach ($output as $line) {
+                        if (preg_match('/Columns:\s*(\d+)/', $line, $matches)) {
+                            $width = (int)$matches[1];
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Unix/Linux/macOS: Use tput command
+                $width = @exec('tput cols 2>/dev/null');
+            }
+
+            if (is_numeric($width) && $width > self::MIN_LINE_WIDTH) {
+                return min((int)$width, self::DEFAULT_LINE_WIDTH);
+            }
+        }
+
+        // Final fallback to default width
         return self::DEFAULT_LINE_WIDTH;
     }
 

@@ -129,6 +129,6 @@ return [
         'verbose' => false,
         // Log seeding performance to file
         'log_to_file' => false,
-        'log_file' => storage_path('logs/wimd-seeding.log'),
+        'log_file' => storage_path('logs/wimd-seeding.log')
     ],
 ];
