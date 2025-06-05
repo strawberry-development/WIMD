@@ -31,9 +31,9 @@ class WimdManager
     /**
      * The metrics collector instance.
      *
-     * @var MetricsCollector
+     * @var MetricsCollector|null
      */
-    protected $metrics;
+    protected $metrics = null;
 
     /**
      * Console output interface.
@@ -63,16 +63,26 @@ class WimdManager
      */
     protected $unregisteredSeeders = [];
 
+    /**
+     * Current operation mode
+     *
+     * @var string
+     */
     private $mode;
 
     /**
      * The output renderer.
      *
-     * @var RendererInterface
+     * @var RendererInterface|null
      */
-    protected $renderer;
+    protected $renderer = null;
 
-    private RenderingConfig $config;
+    /**
+     * Rendering configuration
+     *
+     * @var RenderingConfig|null
+     */
+    private $config = null;
 
     /**
      * Whether the manager operates in silent mode.
@@ -81,6 +91,19 @@ class WimdManager
      */
     protected bool $silent = false;
 
+    /**
+     * Cache for seeder table names to avoid repeated computation
+     *
+     * @var array
+     */
+    private array $tableNameCache = [];
+
+    /**
+     * Whether cleanup has been performed
+     *
+     * @var bool
+     */
+    private bool $cleanedUp = false;
 
     /**
      * Create a new WIMD manager instance.
@@ -90,13 +113,90 @@ class WimdManager
     public function __construct(Application $app)
     {
         $this->app = $app;
-        $this->metrics = new MetricsCollector();
         $this->startTime = microtime(true);
 
-        $this->config = new RenderingConfig();
+        // Lazy load config and mode to reduce constructor overhead
+        $this->initializeMode();
+    }
 
-        $this->mode = $this->config->getMode();
-        $this->setMode($this->mode);
+    /**
+     * Initialize mode configuration lazily
+     */
+    private function initializeMode(): void
+    {
+        if ($this->config === null) {
+            $this->config = new RenderingConfig();
+            $this->mode = $this->config->getMode();
+        }
+    }
+
+    /**
+     * Cleanup resources to prevent memory leaks
+     */
+    public function __destruct()
+    {
+        $this->cleanup();
+    }
+
+    /**
+     * Manually cleanup resources
+     */
+    public function cleanup(): void
+    {
+        if ($this->cleanedUp) {
+            return;
+        }
+
+        $this->seeders = [];
+        $this->unregisteredSeeders = [];
+        $this->tableNameCache = [];
+
+        // Clear object references
+        $this->metrics = null;
+        $this->renderer = null;
+        $this->config = null;
+
+        $this->cleanedUp = true;
+    }
+
+    /**
+     * Get the metrics collector instance (lazy loaded)
+     *
+     * @return MetricsCollector
+     */
+    protected function getMetrics(): MetricsCollector
+    {
+        if ($this->metrics === null) {
+            $this->metrics = new MetricsCollector();
+        }
+        return $this->metrics;
+    }
+
+    /**
+     * Get the renderer instance (lazy loaded)
+     *
+     * @return RendererInterface
+     */
+    protected function getRenderer(): RendererInterface
+    {
+        if ($this->renderer === null) {
+            $this->renderer = new ConsoleRenderer();
+            if ($this->output) {
+                $this->renderer->setOutput($this->output);
+            }
+        }
+        return $this->renderer;
+    }
+
+    /**
+     * Get the configuration instance (lazy loaded)
+     *
+     * @return RenderingConfig
+     */
+    protected function getConfig(): RenderingConfig
+    {
+        $this->initializeMode();
+        return $this->config;
     }
 
     /**
@@ -109,6 +209,12 @@ class WimdManager
     {
         $this->output = $output;
         $this->output->setDecorated(true);
+
+        // Update renderer if it exists
+        if ($this->renderer) {
+            $this->renderer->setOutput($this->output);
+        }
+
         return $this;
     }
 
@@ -120,9 +226,11 @@ class WimdManager
      */
     public function setMode(string $mode): self
     {
-        // Ensure renderer is created
-        $this->renderer = new ConsoleRenderer();
         $this->mode = $mode;
+
+        // Reset renderer to apply new mode
+        $this->renderer = null;
+
         return $this;
     }
 
@@ -140,10 +248,12 @@ class WimdManager
         $this->seeders[$seederClass] = [
             'table' => $tableName,
             'options' => $options,
-            'metrics' => $this->metrics->createSeederMetrics($seederClass, $tableName),
+            'metrics' => $this->getMetrics()->createSeederMetrics($seederClass, $tableName),
         ];
 
-        $this->unregisteredSeeders = $this->findUnregisteredSeeders();
+        // Clear unregistered seeders cache to force refresh
+        $this->unregisteredSeeders = [];
+
         return $this;
     }
 
@@ -158,7 +268,7 @@ class WimdManager
     public function updateMetrics(string $seederClass, int $recordsAdded, float $executionTime): self
     {
         if (isset($this->seeders[$seederClass])) {
-            $this->metrics->updateSeederMetrics(
+            $this->getMetrics()->updateSeederMetrics(
                 $this->seeders[$seederClass]['metrics'],
                 $recordsAdded,
                 $executionTime
@@ -170,43 +280,64 @@ class WimdManager
     /**
      * Find seeder classes that aren't registered in the $seeders array by scanning the seeder directory.
      *
-     * @param string $seedersPath Path to the directory containing seeder classes
+     * @param string|null $seedersPath Path to the directory containing seeder classes
      * @return array List of unregistered seeder classes with their table names
      */
     public function findUnregisteredSeeders(string $seedersPath = null): array
     {
+        // Return cached result if available
+        if (!empty($this->unregisteredSeeders)) {
+            return $this->unregisteredSeeders;
+        }
+
         // Default seeder path if none provided
         if ($seedersPath === null) {
             $seedersPath = database_path('seeders');
         }
 
+        // Check if directory exists
+        if (!is_dir($seedersPath)) {
+            return [];
+        }
+
         $unregisteredSeeders = [];
 
-        // Get all PHP files in the seeders directory
-        $files = glob($seedersPath . '/*.php');
+        try {
+            // Use DirectoryIterator for better memory efficiency with large directories
+            $iterator = new \DirectoryIterator($seedersPath);
 
-        foreach ($files as $file) {
-            // Extract class name from filename (without .php extension)
-            $className = basename($file, '.php');
+            foreach ($iterator as $fileInfo) {
+                // Skip non-PHP files and directories
+                if (!$fileInfo->isFile() || $fileInfo->getExtension() !== 'php') {
+                    continue;
+                }
 
-            // Add namespace if needed - adjust this to match your application structure
-            $seederClass = 'Database\\Seeders\\' . $className;
+                $className = $fileInfo->getBasename('.php');
+                $seederClass = 'Database\\Seeders\\' . $className;
 
-            // Skip DatabaseSeeder or already registered seeders
-            if ($className === 'DatabaseSeeder' || isset($this->seeders[$seederClass])) {
-                continue;
+                // Skip DatabaseSeeder or already registered seeders
+                if ($className === 'DatabaseSeeder' || isset($this->seeders[$seederClass])) {
+                    continue;
+                }
+
+                // Only process if class exists to avoid memory overhead
+                if (class_exists($seederClass)) {
+                    $tableName = $this->getTableNameFromSeeder($seederClass);
+                    $unregisteredSeeders[$seederClass] = [
+                        'table' => $tableName,
+                        'options' => [],
+                        'metrics' => $this->getMetrics()->createSeederMetrics($seederClass, $tableName),
+                    ];
+                }
             }
-
-            // Make sure the class exists
-            if (class_exists($seederClass)) {
-                $tableName = $this->getTableNameFromSeeder($seederClass);
-                $unregisteredSeeders[$seederClass] = [
-                    'table' => $tableName,
-                    'options' => [],
-                    'metrics' => $this->metrics->createSeederMetrics($seederClass, $tableName),
-                ];
-            }
+        } catch (\Exception $e) {
+            // Log error or handle silently depending on your error handling strategy
+            error_log("Error scanning seeders directory: " . $e->getMessage());
+            return [];
         }
+
+        // Cache the result
+        $this->unregisteredSeeders = $unregisteredSeeders;
 
         return $unregisteredSeeders;
     }
@@ -222,65 +353,93 @@ class WimdManager
         // Calculate the total execution time
         $totalTime = microtime(true) - $this->startTime;
 
-        // Handle output interface
-        $usingBufferedOutput = false;
-        $originalOutput = $this->output;
-
-        // Create output if none exists and output is required
-        if (!$this->output && $forceOutput) {
-            $this->output = new BufferedOutput();
-            $this->renderer->setOutput($this->output);
-            $usingBufferedOutput = true;
-        }
-
-        // If we still don't have an output, use echo to print the report
-        if (!$this->output) {
-            // For CLI usage, we need to output something even without a proper output interface
-            // Create a temporary buffered output to capture the report
-            $tempOutput = new BufferedOutput();
-            $this->renderer->setOutput($tempOutput);
-            $this->renderer->entryPoint(array_merge($this->seeders, $this->unregisteredSeeders), $totalTime);
-
-            // Echo the report directly
-            echo $tempOutput->fetch();
-
-            // Restore original state (which was null)
-            $this->renderer->setOutput(null);
-
+        // Early return if no output needed
+        if (!$this->output && !$forceOutput) {
             return null;
         }
 
-        // Render the report with the configured renderer
-        $this->renderer->entryPoint(array_merge($this->seeders, $this->unregisteredSeeders), $totalTime);
+        $shouldReturnString = false;
+        $originalOutput = $this->output;
+        $tempOutput = null;
 
-        // If using buffered output, fetch and return the content
-        if ($usingBufferedOutput && $this->output instanceof BufferedOutput) {
-            $report = $this->output->fetch();
+        try {
+            // Handle output interface creation
+            if (!$this->output && $forceOutput) {
+                $tempOutput = new BufferedOutput();
+                $this->output = $tempOutput;
+                $shouldReturnString = true;
+            }
 
-            // Also print the report if this isn't being called for capturing
-            echo $report;
+            // If we still don't have an output, create a temporary one for CLI
+            if (!$this->output) {
+                $tempOutput = new BufferedOutput();
+                $renderer = $this->getRenderer();
+                $renderer->setOutput($tempOutput);
+                $renderer->entryPoint($this->getAllSeeders(), $totalTime);
 
-            // Restore the original output (which was null)
+                // Echo the report directly for CLI usage
+                $report = $tempOutput->fetch();
+                echo $report;
+
+                return null;
+            }
+
+            // Render the report with the configured renderer
+            $renderer = $this->getRenderer();
+            $renderer->setOutput($this->output);
+            $renderer->entryPoint($this->getAllSeeders(), $totalTime);
+
+            // Handle buffered output return
+            if ($shouldReturnString && $this->output instanceof BufferedOutput) {
+                $report = $this->output->fetch();
+                echo $report;
+                return $report;
+            }
+
+        } finally {
+            // Always restore original state
             $this->output = $originalOutput;
 
-            if ($this->output) {
+            // Update renderer output if it exists
+            if ($this->renderer && $this->output) {
                 $this->renderer->setOutput($this->output);
             }
 
-            return $report;
+            // Clean up temporary output
+            $tempOutput = null;
         }
 
         return null;
     }
 
     /**
-     * Get table name from seeder class name.
+     * Get all seeders (registered and unregistered) efficiently
+     *
+     * @return array
+     */
+    private function getAllSeeders(): array
+    {
+        // Lazy load unregistered seeders only when needed
+        $unregistered = empty($this->unregisteredSeeders)
+            ? $this->findUnregisteredSeeders()
+            : $this->unregisteredSeeders;
+
+        return array_merge($this->seeders, $unregistered);
+    }
+
+    /**
+     * Get table name from seeder class name with caching.
      *
      * @param string $seederName
      * @return string
      */
     protected function getTableNameFromSeeder(string $seederName): string
     {
+        // Check cache first
+        if (isset($this->tableNameCache[$seederName])) {
+            return $this->tableNameCache[$seederName];
+        }
+
         // Extract the class name without namespace
         $classNameParts = explode('\\', $seederName);
         $className = end($classNameParts);
@@ -288,6 +447,9 @@ class WimdManager
         // Convert CamelCase to snake_case and remove "Seeder" suffix
         $tableName = preg_replace('/Seeder$/', '', $className);
         $tableName = strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $tableName));
+
+        // Cache the result
+        $this->tableNameCache[$seederName] = $tableName;
 
         return $tableName;
     }
@@ -299,6 +461,7 @@ class WimdManager
      */
     public function getMode(): string
     {
+        $this->initializeMode();
         return $this->mode;
     }
 
@@ -307,9 +470,9 @@ class WimdManager
      *
      * @return RenderingConfig
      */
-    public function getConfig(): RenderingConfig
+    public function getConfigInstance(): RenderingConfig
     {
-        return $this->config;
+        return $this->getConfig();
     }
 
     /**
@@ -333,7 +496,6 @@ class WimdManager
         return $this->silent;
     }
 
-
     /**
      * Set the silent mode status.
      *
@@ -344,5 +506,71 @@ class WimdManager
     {
         $this->silent = $silent;
         return $this;
+    }
+
+    /**
+     * Get current memory usage information.
+     *
+     * @return array
+     */
+    public function getMemoryUsage(): array
+    {
+        return [
+            'current' => memory_get_usage(true),
+            'peak' => memory_get_peak_usage(true),
+            'current_formatted' => $this->formatBytes(memory_get_usage(true)),
+            'peak_formatted' => $this->formatBytes(memory_get_peak_usage(true)),
+            'seeders_count' => count($this->seeders),
+            'unregistered_count' => count($this->unregisteredSeeders),
+        ];
+    }
+
+    /**
+     * Format bytes to human readable format.
+     *
+     * @param int $bytes
+     * @return string
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+
+        $bytes /= pow(1024, $pow);
+
+        return round($bytes, 2) . ' ' . $units[$pow];
+    }
+
+    /**
+     * Clear all cached data to free memory.
+     *
+     * @return self
+     */
+    public function clearCache(): self
+    {
+        $this->unregisteredSeeders = [];
+        $this->tableNameCache = [];
+        return $this;
+    }
+
+    /**
+     * Get statistics about the manager's current state.
+     *
+     * @return array
+     */
+    public function getStats(): array
+    {
+        return [
+            'registered_seeders' => count($this->seeders),
+            'unregistered_seeders' => count($this->unregisteredSeeders),
+            'cached_table_names' => count($this->tableNameCache),
+            'execution_time' => microtime(true) - $this->startTime,
+            'memory_usage' => $this->getMemoryUsage(),
+            'mode' => $this->getMode(),
+            'silent' => $this->silent,
+            'cleaned_up' => $this->cleanedUp,
+        ];
     }
 }
