@@ -116,6 +116,14 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     protected bool $silent;
 
     /**
+     * Memory management properties
+     */
+    protected int $maxCacheSize = 1000;
+    protected int $memoryCheckInterval = 100;
+    protected int $lastMemoryCheck = 0;
+    protected string $memoryThreshold = '50M';
+
+    /**
      * Constructor
      */
     public function __construct()
@@ -123,10 +131,8 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $this->output = new ConsoleOutput();
         $this->output->setDecorated(true);
 
-        // Load configuration with defaults
         $this->loadConfig();
 
-        // Register this seeder with WIMD
         $options = [
             'lightItems' => $this->lightItems,
             'fullItems' => $this->fullItems,
@@ -150,6 +156,9 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $this->useTransactions = config('wimd.use_transactions', true);
         $this->continueOnError = config('wimd.continue_on_error', false);
         $this->maxErrors = config('wimd.max_errors', 5);
+        $this->maxCacheSize = config('wimd.max_cache_size', 1000);
+        $this->memoryCheckInterval = config('wimd.memory_check_interval', 100);
+        $this->memoryThreshold = config('wimd.memory.thresholds.warning', '50M');
 
         $this->bar = config(
             'wimd.styling.progress_format.bar',
@@ -193,12 +202,74 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     }
 
     /**
+     * Check memory usage and perform cleanup if needed
+     */
+    protected function checkMemoryUsage(): void
+    {
+        $this->lastMemoryCheck++;
+
+        if ($this->lastMemoryCheck % $this->memoryCheckInterval !== 0) {
+            return;
+        }
+
+        $memoryUsage = memory_get_usage(true);
+        $memoryLimit = $this->parseMemoryString($this->memoryThreshold);
+
+        if ($memoryUsage > $memoryLimit) {
+            $this->performMemoryCleanup();
+
+            if (function_exists('gc_collect_cycles')) {
+                gc_collect_cycles();
+            }
+        }
+    }
+
+    /**
+     * Perform memory cleanup operations
+     */
+    protected function performMemoryCleanup(): void
+    {
+        if (count($this->dataCache) > $this->maxCacheSize) {
+            $keysToRemove = array_slice(array_keys($this->dataCache), 0, $this->maxCacheSize / 2);
+            foreach ($keysToRemove as $key) {
+                unset($this->dataCache[$key]);
+            }
+        }
+
+        foreach ($this->batchCollectors as $table => &$collector) {
+            if (!empty($collector['items'])) {
+                $this->flushBatchCollector($table);
+            }
+        }
+        unset($collector);
+    }
+
+    /**
+     * Parse memory string to bytes
+     */
+    protected function parseMemoryString(string $memory): int
+    {
+        $unit = strtoupper(substr($memory, -1));
+        $value = (int) substr($memory, 0, -1);
+
+        switch ($unit) {
+            case 'G':
+                return $value * 1024 * 1024 * 1024;
+            case 'M':
+                return $value * 1024 * 1024;
+            case 'K':
+                return $value * 1024;
+            default:
+                return (int) $memory;
+        }
+    }
+
+    /**
      * Main seeder run method - wraps the actual seeding with progress tracking
      * @throws ThrowUpException
      */
     public function run(): void
     {
-        // Suppress default Laravel output
         $this->command?->getOutput()?->setVerbosity(OutputInterface::VERBOSITY_QUIET);
 
         $className = static::class;
@@ -215,7 +286,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
                 $this->totalItems = $this->fullItems;
             }
         } else {
-            // Consider as light mode, check if it can be designate
             if ($this->lightItems !== null) {
                 $this->totalItems = $this->lightItems;
             }
@@ -229,7 +299,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             $this->writeOutput("  " . $text, true);
         }
 
-        // Call the prepare method to calculate totals
         try {
             $this->prepare();
         } catch (Throwable $e) {
@@ -237,7 +306,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             throw new ThrowUpException("Failed to prepare {$seedName} seeder");
         }
 
-        // Enforce min/max if set
         if ($this->lightItems !== null && $this->totalItems < $this->lightItems) {
             $this->totalItems = $this->lightItems;
         }
@@ -246,21 +314,16 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             $this->totalItems = $this->fullItems;
         }
 
-        // Start the progress bar if total items were set and not in silent mode
         if ($this->totalItems > 0 && !$this->silent) {
             $this->startProgress($this->totalItems, null);
         }
 
         try {
-            // Execute the actual seeding logic
             $this->seed();
 
-            // Insert any remaining items in batch collectors
             $this->flushAllBatchCollectors();
 
-            // Finish the progress bar
             if ($this->progressBar && !$this->silent) {
-                // Make sure progress bar is at 100% at the end
                 if ($this->itemsProcessed < $this->totalItems) {
                     $this->advanceProgress($this->totalItems - $this->itemsProcessed);
                 }
@@ -268,14 +331,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             }
 
             if (!$this->silent) {
-                // Create summary information
                 $itemsProcessedSummary = number_format($this->itemsProcessed);
                 $executionTime = microtime(true) - $this->seederStartTime;
                 $itemsPerSecond = ($executionTime > 0) ? number_format($this->itemsProcessed / $executionTime, 1) : 0;
 
                 $summary = "Items: {$itemsProcessedSummary}, Per second: {$itemsPerSecond}/s";
 
-                // Add error information if any errors occurred
                 if ($this->errorCount > 0) {
                     $summary .= ", Errors: {$this->errorCount}";
                 }
@@ -288,13 +349,11 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
                 );
                 $this->writeOutput('  ' . $text, true);
 
-                // Show error summary if any occurred
                 if ($this->errorCount > 0) {
                     $this->writeOutput("  <fg=yellow;options=bold>⚠️  Completed with {$this->errorCount} error(s)</>", true);
                 }
             }
 
-            // Update metrics
             $executionTime = microtime(true) - $this->seederStartTime;
             app('wimd')->updateMetrics(static::class, $this->itemsProcessed, $executionTime, $this->errorCount);
 
@@ -304,6 +363,21 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             }
             $this->handleError("Fatal error in {$seedName} seeder", $e, true);
             throw new ThrowUpException("  Failed to seed {$seedName}", 0, $e);
+        } finally {
+            $this->cleanup();
+        }
+    }
+
+    /**
+     * Clean up resources
+     */
+    protected function cleanup(): void
+    {
+        $this->dataCache = [];
+        $this->batchCollectors = [];
+
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
         }
     }
 
@@ -331,12 +405,10 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $errorMessage = $e->getMessage();
         $errorLocation = basename($e->getFile()) . ':' . $e->getLine();
 
-        // Clear progress bar if it exists and not in silent mode
         if ($this->progressBar && !$this->silent) {
             $this->progressBar->clear();
         }
 
-        // Output error details only if not in silent mode
         if (!$this->silent) {
             $this->writeOutput([
                 "",
@@ -346,7 +418,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             ], true);
         }
 
-        // Always log the full error with stack trace regardless of silent mode
         Log::error("{$message}: {$errorMessage}", [
             'exception' => $e,
             'seeder' => static::class
@@ -354,14 +425,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
         $this->errorCount++;
 
-        // Check if we should abort due to too many errors
         if (!$isFatal && $this->maxErrors > 0 && $this->errorCount >= $this->maxErrors && !$this->continueOnError) {
             throw new ThrowUpException(
                 "Maximum error threshold ({$this->maxErrors}) reached. Aborting seeder.",
             );
         }
 
-        // Restart progress bar if needed and not in silent mode
         if ($this->progressBar && !$isFatal && !$this->silent) {
             $this->progressBar->display();
         }
@@ -405,7 +474,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $this->progressBar->setEmptyBarCharacter('.');
         $this->progressBar->setProgressCharacter('');
 
-        // Add memory usage if in full mode
         if ($this->mode === 'full') {
             $this->formatBase .= $this->formatCompletion;
         }
@@ -424,12 +492,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         if ($this->progressBar && !$this->silent) {
             $this->progressBar->advance($step);
 
-            // Force recalculation of time estimates
             if ($this->itemsProcessed % 100 === 0) {
                 $this->progressBar->display();
             }
         }
         $this->itemsProcessed += $step;
+        $this->checkMemoryUsage();
     }
 
     /**
@@ -489,10 +557,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
                         throw $e;
                     }
                 }
+
+                unset($batch);
             }
 
-            // Clear the data array to free memory
             $data = [];
+            unset($batches);
         } catch (Throwable $e) {
             if (!$this->continueOnError) {
                 throw $e;
@@ -630,7 +700,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     {
         $batchSize = $batchSize ?? $this->batchSize;
 
-        // Initialize batch collector for this table if it doesn't exist
         if (!isset($this->batchCollectors[$table])) {
             $this->batchCollectors[$table] = [
                 'items' => [],
@@ -638,10 +707,8 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             ];
         }
 
-        // Add item to the collector
         $this->batchCollectors[$table]['items'][] = $item;
 
-        // Check if we reached the batch size
         if (count($this->batchCollectors[$table]['items']) >= $batchSize) {
             $this->flushBatchCollector($table);
         }
@@ -685,11 +752,9 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $batchSize = $batchSize ?? $this->batchSize;
         $collection = collect();
 
-        // Calculate number of full batches and remainder
         $fullBatches = floor($count / $batchSize);
         $remainder = $count % $batchSize;
 
-        // Process full batches
         for ($i = 0; $i < $fullBatches; $i++) {
             try {
                 if ($this->useTransactions) {
@@ -723,7 +788,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             }
         }
 
-        // Process remainder if any
         if ($remainder > 0) {
             try {
                 if ($this->useTransactions) {
@@ -806,12 +870,10 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function getCachedLookup(string $cacheKey, string $table, array $where, string $select)
     {
-        // Return from cache if available
         if (isset($this->dataCache[$cacheKey])) {
             return $this->dataCache[$cacheKey];
         }
 
-        // Query the database
         try {
             $query = DB::table($table);
 
@@ -821,8 +883,9 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
             $result = $query->value($select);
 
-            // Store in cache
-            $this->dataCache[$cacheKey] = $result;
+            if (count($this->dataCache) < $this->maxCacheSize) {
+                $this->dataCache[$cacheKey] = $result;
+            }
 
             return $result;
         } catch (Throwable $e) {
@@ -929,5 +992,32 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     public function isSilent(): bool
     {
         return $this->silent;
+    }
+
+    /**
+     * Set maximum cache size
+     */
+    public function setMaxCacheSize(int $size): self
+    {
+        $this->maxCacheSize = $size;
+        return $this;
+    }
+
+    /**
+     * Set memory check interval
+     */
+    public function setMemoryCheckInterval(int $interval): self
+    {
+        $this->memoryCheckInterval = $interval;
+        return $this;
+    }
+
+    /**
+     * Set memory threshold
+     */
+    public function setMemoryThreshold(string $threshold): self
+    {
+        $this->memoryThreshold = $threshold;
+        return $this;
     }
 }
