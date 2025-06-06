@@ -229,19 +229,26 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function performMemoryCleanup(): void
     {
-        if (count($this->dataCache) > $this->maxCacheSize) {
-            $keysToRemove = array_slice(array_keys($this->dataCache), 0, $this->maxCacheSize / 2);
+        if (count($this->dataCache) > $this->maxCacheSize / 2) {
+            $keysToRemove = array_slice(array_keys($this->dataCache), 0, (int)($this->maxCacheSize * 0.75));
             foreach ($keysToRemove as $key) {
                 unset($this->dataCache[$key]);
             }
+            unset($keysToRemove);
         }
 
+        // Flush all batch collectors
         foreach ($this->batchCollectors as $table => &$collector) {
             if (!empty($collector['items'])) {
                 $this->flushBatchCollector($table);
             }
         }
         unset($collector);
+
+        // Clear any large arrays in memory
+        if (function_exists('gc_mem_caches')) {
+            gc_mem_caches();
+        }
     }
 
     /**
@@ -373,11 +380,21 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function cleanup(): void
     {
+        // Clear all arrays explicitly
         $this->dataCache = [];
         $this->batchCollectors = [];
 
+        // Reset progress bar reference
+        $this->progressBar = null;
+
+        // Force garbage collection
         if (function_exists('gc_collect_cycles')) {
             gc_collect_cycles();
+        }
+
+        // Clear memory caches if available
+        if (function_exists('gc_mem_caches')) {
+            gc_mem_caches();
         }
     }
 
@@ -468,7 +485,8 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             $this->writeOutput($message, true);
         }
         $this->progressBar = new WindProgressBar($this->output, $total);
-        $this->progressBar->setRedrawFrequency(max(1, min(100, intval($total / 100))));
+        //$this->progressBar->setRedrawFrequency(max(1, min(100, intval($total / 100))));
+        $this->progressBar->setRedrawFrequency(1555);
         $this->progressBar->setBarWidth(50);
         $this->progressBar->setBarCharacter('#');
         $this->progressBar->setEmptyBarCharacter('.');
@@ -530,10 +548,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         }
 
         $batchSize = $batchSize ?? $this->batchSize;
-        $batches = array_chunk($data, $batchSize);
+        $totalItems = count($data);
 
         try {
-            foreach ($batches as $batch) {
+            for ($i = 0; $i < $totalItems; $i += $batchSize) {
+                $batch = array_slice($data, $i, $batchSize);
+
                 if ($this->useTransactions) {
                     DB::beginTransaction();
                 }
@@ -558,11 +578,10 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
                     }
                 }
 
-                unset($batch);
+                unset($batch); // Free batch memory immediately
             }
 
-            $data = [];
-            unset($batches);
+            $data = []; // Clear original array
         } catch (Throwable $e) {
             if (!$this->continueOnError) {
                 throw $e;
@@ -712,6 +731,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         if (count($this->batchCollectors[$table]['items']) >= $batchSize) {
             $this->flushBatchCollector($table);
         }
+
+        // Check memory after every 50 items across all collectors
+        static $itemCounter = 0;
+        if (++$itemCounter % 50 === 0) {
+            $this->checkMemoryUsage();
+        }
     }
 
     /**
@@ -745,36 +770,46 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      * @param int $count Number of models to create
      * @param int|null $batchSize Custom batch size (optional)
      * @param callable|null $customizer Optional callback to customize each model's attributes before creation
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return WimdSeeder
+     * @throws ThrowUpException
+     * @throws Throwable
      */
-    protected function createWithFactory(string $model, int $count = 1, ?int $batchSize = null, ?callable $customizer = null)
+    protected function createWithFactory(string $model, int $count = 1, ?int $batchSize = null, ?callable $customizer = null): WimdSeeder
     {
         $batchSize = $batchSize ?? $this->batchSize;
-        $collection = collect();
+        $processed = 0;
 
-        $fullBatches = floor($count / $batchSize);
-        $remainder = $count % $batchSize;
+        while ($processed < $count) {
+            $currentBatchSize = min($batchSize, $count - $processed);
 
-        for ($i = 0; $i < $fullBatches; $i++) {
             try {
                 if ($this->useTransactions) {
                     DB::beginTransaction();
                 }
 
-                $factory = $model::factory()->count($batchSize);
+                // Don't store the created models in memory
+                $factory = $model::factory()->count($currentBatchSize);
 
                 if ($customizer) {
-                    $result = $factory->state($customizer)->create();
-                } else {
-                    $result = $factory->create();
+                    $factory->state($customizer);
                 }
+
+                // Create without storing results
+                $factory->create();
+                unset($factory);
 
                 if ($this->useTransactions) {
                     DB::commit();
                 }
 
-                $collection = $collection->merge($result);
-                $this->advanceProgress($batchSize);
+                $this->advanceProgress($currentBatchSize);
+                $processed += $currentBatchSize;
+
+                // More frequent garbage collection for large datasets
+                if ($processed % ($batchSize * 2) === 0 && function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
+
             } catch (Throwable $e) {
                 if ($this->useTransactions) {
                     DB::rollBack();
@@ -785,43 +820,12 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
                 if (!$this->continueOnError) {
                     throw $e;
                 }
+
+                $processed += $currentBatchSize; // Skip this batch
             }
         }
 
-        if ($remainder > 0) {
-            try {
-                if ($this->useTransactions) {
-                    DB::beginTransaction();
-                }
-
-                $factory = $model::factory()->count($remainder);
-
-                if ($customizer) {
-                    $result = $factory->state($customizer)->create();
-                } else {
-                    $result = $factory->create();
-                }
-
-                if ($this->useTransactions) {
-                    DB::commit();
-                }
-
-                $collection = $collection->merge($result);
-                $this->advanceProgress($remainder);
-            } catch (Throwable $e) {
-                if ($this->useTransactions) {
-                    DB::rollBack();
-                }
-
-                $this->handleError("Error creating models with factory for '{$model}'", $e);
-
-                if (!$this->continueOnError) {
-                    throw $e;
-                }
-            }
-        }
-
-        return $collection;
+        return $this;
     }
 
     /**
