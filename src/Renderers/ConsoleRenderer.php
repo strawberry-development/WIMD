@@ -105,7 +105,6 @@ class ConsoleRenderer extends BaseRenderer
             $output[] = $this->recommendationRenderer->renderRecommendations();
         }
 
-        $output[] = "\n";
         $output[] = $this->createFooter();
 
         $this->writeOutput(...$output);

@@ -78,13 +78,14 @@ class SystemRenderer extends Component
         $output[] = $this->createSectionHeader("SYSTEM INFORMATION");
 
         // Enhanced system information
-        $output[] = "<fg=white;options=bold>Operating System:</> {$sysInfo['os']} <fg=gray>({$sysInfo['php_os']})</>";
-        $output[] = "<fg=white;options=bold>Database:</> {$sysInfo['database']} <fg=gray>(Driver: {$sysInfo['db_driver']})</>";
-        $output[] = "<fg=white;options=bold>Environment:</> {$sysInfo['environment']} <fg=gray>(App: {$sysInfo['app_name']})</>";
-        $output[] = "<fg=white;options=bold>Memory Usage:</> {$sysInfo['memory']} <fg=gray>(Peak: {$sysInfo['peak_memory']})</>";
-        $output[] = "<fg=white;options=bold>Time:</> {$sysInfo['time']} <fg=gray>({$sysInfo['timezone']})</>";
-        $output[] = "<fg=white;options=bold>PHP Version:</> {$sysInfo['php_version']}";
-        $output[] = "<fg=white;options=bold>Laravel Version:</> {$sysInfo['laravel_version']}";
+        $output[] = $this->consoleFormatter->formatLine("Operating System",  "{$sysInfo['os']} gray{({$sysInfo['php_os']})}");
+        $output[] = $this->consoleFormatter->formatLine("Database",  "{$sysInfo['database']} gray{(Driver: {$sysInfo['db_driver']})}");
+        $output[] = $this->consoleFormatter->formatLine("Environment",  "{$sysInfo['environment']} gray{(App: {$sysInfo['app_name']})}");
+        $output[] = $this->consoleFormatter->formatLine("Memory Usage",  "{$sysInfo['memory']} gray{(Peak: {$sysInfo['peak_memory']})}");
+        $output[] = $this->consoleFormatter->formatLine("Time",  "{$sysInfo['time']} gray{({$sysInfo['timezone']})}");
+        $output[] = $this->consoleFormatter->formatLine("PHP Version",  "{$sysInfo['php_version']}");
+        $output[] = $this->consoleFormatter->formatLine("Laravel Version",  "{$sysInfo['laravel_version']}");
+        $output[] = "";
 
         return implode("\n", $output);
     }
