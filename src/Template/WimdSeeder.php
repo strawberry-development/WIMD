@@ -12,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 use Wimd\Console\Helper\WindProgressBar;
 use Wimd\Contracts\WimdSeederInterface;
+use Wimd\Facades\Wimd;
 use Wimd\Support\ConsoleFormatter;
 
 /**
@@ -141,9 +142,9 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
 
         $this->consoleFormatter = new ConsoleFormatter();
 
-        $this->setMode(app('wimd')->getMode());
-        app('wimd')->registerSeeder(static::class, $options);
-        $this->silent = app('wimd')->isSilent();
+        $this->setMode(Wimd::getMode());
+        Wimd::registerSeeder(static::class, $options);
+        $this->silent = Wimd::isSilent();
     }
 
     /**

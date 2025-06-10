@@ -27,40 +27,45 @@ class DataMetric
     public string $slowColor = "red";
 
     /**
-     * Constructor to hydrate properties
+     * Constructor to create DataMetric from seeders and total time
      *
-     * @param array $attributes
+     * @param array $seeders
+     * @param float $totalTime
+     * @param MetricsCollector|null $metricsCollector
      */
-    public function __construct(array $attributes = [])
+    public function __construct(array $seeders, float $totalTime, ?MetricsCollector $metricsCollector = null)
     {
-        foreach ($attributes as $key => $value) {
+        // If no MetricsCollector is provided, create a default one
+        if ($metricsCollector === null) {
+            $metricsCollector = new MetricsCollector();
+        }
+
+        $this->seeders = $seeders;
+        $this->total_time = $totalTime;
+
+        // Calculate and populate all metrics
+        $metrics = $this->calculateMetrics($seeders, $totalTime, $metricsCollector);
+
+        foreach ($metrics as $key => $value) {
             $this->{$key} = $value;
         }
     }
 
     /**
-     * Fill this object with metrics calculated from seeders data
+     * Alternative constructor for manual hydration (for backward compatibility)
      *
-     * @param array $seeders
-     * @param float $totalTime
-     * @param MetricsCollector $metricsCollector
-     * @return $this
+     * @param array $attributes
+     * @return static
      */
-    public function createFromSeeders(
-        array $seeders,
-        float $totalTime,
-        MetricsCollector $metricsCollector,
-    ): self {
-        $metrics = $this->calculateMetrics($seeders, $totalTime, $metricsCollector);
+    public static function fromAttributes(array $attributes = []): self
+    {
+        $instance = new self([], 0.0);
 
-        // Fill the current object with the calculated metrics
-        foreach ($metrics as $key => $value) {
-            $this->{$key} = $value;
+        foreach ($attributes as $key => $value) {
+            $instance->{$key} = $value;
         }
 
-        $this->seeders = $seeders;
-
-        return $this;
+        return $instance;
     }
 
     /**

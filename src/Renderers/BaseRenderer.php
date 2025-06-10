@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Config;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wimd\Config\RenderingConfig;
+use Wimd\Facades\Wimd;
 use Wimd\Support\ConsoleFormatter;
 
 abstract class BaseRenderer implements RendererInterface
@@ -39,12 +40,12 @@ abstract class BaseRenderer implements RendererInterface
      * Constructor
      *
      */
-    public function __construct(?RenderingConfig $config = null)
+    public function __construct()
     {
-        $this->config = $config ?? new RenderingConfig();
-        $this->consoleFormatter = new ConsoleFormatter();
+        $this->config = Wimd::getConfigInstance();
+        $this->consoleFormatter = Wimd::getFormatterInstance();
 
-        $this->isColored = Config::get('wimd.styling.use_colors', true);
+        $this->isColored = $this->config->isColorsEnabled();
     }
 
     /**

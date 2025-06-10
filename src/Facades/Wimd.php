@@ -3,7 +3,9 @@
 namespace Wimd\Facades;
 
 use Illuminate\Support\Facades\Facade;
+use Wimd\Support\ConsoleFormatter;
 use Wimd\WimdManager;
+use Wimd\Config\RenderingConfig;
 
 /**
  * Wimd Facade
@@ -20,9 +22,18 @@ use Wimd\WimdManager;
  * @method static WimdManager registerSeeder(string $seederClass, array $options = [])
  * @method static WimdManager updateMetrics(string $seederClass, int $recordsAdded, float $executionTime)
  * @method static string getMode()
+ * @method static RenderingConfig getConfigInstance()
+ * @method static ConsoleFormatter getFormatterInstance()
  * @method static array|null getSeederMetrics(string $seederClass)
  * @method static array findUnregisteredSeeders(string $seedersPath = null)
- * @method static string|null displayReport(bool $forceOutput = true)
+ * @method static string displayReport()
+ * @method static bool isSilent()
+ * @method static WimdManager setSilent(bool $silent)
+ * @method static array getMemoryUsage()
+ * @method static WimdManager clearCache()
+ * @method static array getStats()
+ * @method static void cleanup()
+ * @method static void writeLog(string $filePath, string $message)
  *
  * @see \Wimd\WimdManager
  */

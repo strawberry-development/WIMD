@@ -9,6 +9,7 @@ use ReflectionException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
+use Wimd\Config\RenderingConfig;
 use Wimd\Facades\Wimd;
 use Wimd\Support\ConsoleFormatter;
 
@@ -23,11 +24,13 @@ abstract class WimdDatabaseSeeder extends Seeder
 {
     protected ConsoleFormatter $consoleFormatter;
     protected OutputInterface $outputWriter;
+    protected RenderingConfig $config;
 
     public function __construct()
     {
-        $this->consoleFormatter = new ConsoleFormatter();
+        $this->consoleFormatter = Wimd::getFormatterInstance();
         $this->outputWriter = new ConsoleOutput();
+        $this->config = Wimd::getConfigInstance();
     }
 
     /**
@@ -52,7 +55,7 @@ abstract class WimdDatabaseSeeder extends Seeder
     public function call($class, $silent = false, array $parameters = []): void
     {
         $classes = Arr::wrap($class);
-        app('wimd')->setSilent($silent);
+        Wimd::setSilent($silent);
 
         foreach ($classes as $seederClass) {
             $this->executeSeeder($seederClass, $silent, $parameters);
@@ -228,12 +231,11 @@ abstract class WimdDatabaseSeeder extends Seeder
             Wimd::setOutput($reportOutput);
         }
 
-        Wimd::displayReport();
+        $result = Wimd::displayReport();
 
-        $result = $this->handleReportOutput($reportOutput, $returnAsString);
+        $filePath = $this->config->getLogFilePath();
+        Wimd::writeLog($filePath, "Report processed: " . json_encode($result));
 
-        // Note: Consider removing exit() or making it optional
-        // as it prevents proper testing and can cause issues
         if (!app()->runningInConsole() || !app()->runningUnitTests()) {
             exit();
         }
@@ -255,23 +257,5 @@ abstract class WimdDatabaseSeeder extends Seeder
         }
 
         return $output;
-    }
-
-    /**
-     * Handle the report output based on requirements
-     *
-     * @param OutputInterface|null $output
-     * @param bool $returnAsString
-     * @return string|null
-     */
-    protected function handleReportOutput(?OutputInterface $output, bool $returnAsString): ?string
-    {
-        if ($returnAsString && $output instanceof BufferedOutput) {
-            $content = $output->fetch();
-            $output->writeln($content);
-            return $content;
-        }
-
-        return null;
     }
 }

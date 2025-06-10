@@ -654,4 +654,82 @@ class ConsoleFormatter
 
         return $paddedString;
     }
+
+    /**
+     * Format a string to a constant width, padding with filler character or truncating as needed
+     *
+     * @param string $text The text to format
+     * @param int $width The desired constant width
+     * @param string|null $filler The character to use for padding (defaults to class constant)
+     * @param string $align Alignment: 'left', 'right', or 'center' (default: 'left')
+     * @return string The formatted string with constant width
+     */
+    public function constantWidth(string $text, int $width, ?string $filler = null, string $align = 'left'): string
+    {
+        if ($filler === null) {
+            $filler = self::DEFAULT_FILLER;
+        }
+
+        // Calculate the actual display length (without color tags)
+        $displayText = $this->stripTags($text);
+        $currentLength = mb_strlen($displayText, 'UTF-8');
+
+        // If text is longer than width, truncate it
+        if ($currentLength > $width) {
+            // Find where to cut in the original text to preserve color formatting
+            $truncated = $this->truncatePreservingColors($text, $width);
+            return $truncated;
+        }
+
+        // If text is shorter, pad it
+        $paddingNeeded = $width - $currentLength;
+
+        switch ($align) {
+            case 'right':
+                return str_repeat($filler, $paddingNeeded) . $text;
+
+            case 'center':
+                $leftPadding = intval($paddingNeeded / 2);
+                $rightPadding = $paddingNeeded - $leftPadding;
+                return str_repeat($filler, $leftPadding) . $text . str_repeat($filler, $rightPadding);
+
+            case 'left':
+            default:
+                return $text . str_repeat($filler, $paddingNeeded);
+        }
+    }
+
+    /**
+     * Helper method to truncate text while preserving color formatting
+     */
+    private function truncatePreservingColors(string $text, int $maxLength): string
+    {
+        $result = '';
+        $currentLength = 0;
+        $inTag = false;
+        $tagBuffer = '';
+
+        for ($i = 0; $i < strlen($text); $i++) {
+            $char = $text[$i];
+
+            if ($char === '<') {
+                $inTag = true;
+                $tagBuffer = '<';
+            } elseif ($char === '>' && $inTag) {
+                $inTag = false;
+                $result .= $tagBuffer . '>';
+                $tagBuffer = '';
+            } elseif ($inTag) {
+                $tagBuffer .= $char;
+            } else {
+                if ($currentLength >= $maxLength) {
+                    break;
+                }
+                $result .= $char;
+                $currentLength++;
+            }
+        }
+
+        return $result;
+    }
 }

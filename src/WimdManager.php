@@ -7,8 +7,10 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wimd\Config\RenderingConfig;
 use Wimd\Metrics\MetricsCollector;
+use Wimd\Model\DataMetric;
 use Wimd\Renderers\ConsoleRenderer;
 use Wimd\Renderers\RendererInterface;
+use Wimd\Support\ConsoleFormatter;
 
 /**
  * WimdManager
@@ -68,14 +70,14 @@ class WimdManager
      *
      * @var string
      */
-    private $mode;
+    private string $mode;
 
     /**
      * The output renderer.
      *
      * @var RendererInterface|null
      */
-    protected $renderer = null;
+    protected ?RendererInterface $renderer = null;
 
     /**
      * Rendering configuration
@@ -106,6 +108,13 @@ class WimdManager
     private bool $cleanedUp = false;
 
     /**
+     * Formatter instance (unique)
+     *
+     * @var ConsoleFormatter|null
+     */
+    private ?ConsoleFormatter $consoleFormatter = null;
+
+    /**
      * Create a new WIMD manager instance.
      *
      * @param Application $app
@@ -116,13 +125,13 @@ class WimdManager
         $this->startTime = microtime(true);
 
         // Lazy load config and mode to reduce constructor overhead
-        $this->initializeMode();
+        $this->lazyInitialize();
     }
 
     /**
      * Initialize mode configuration lazily
      */
-    private function initializeMode(): void
+    private function lazyInitialize(): void
     {
         if ($this->config === null) {
             $this->config = new RenderingConfig();
@@ -155,6 +164,7 @@ class WimdManager
         $this->metrics = null;
         $this->renderer = null;
         $this->config = null;
+        $this->consoleFormatter = null;
 
         $this->cleanedUp = true;
     }
@@ -188,6 +198,14 @@ class WimdManager
         return $this->renderer;
     }
 
+    protected function getConsoleFormatter(): ConsoleFormatter
+    {
+        if ($this->consoleFormatter === null) {
+            $this->consoleFormatter = new ConsoleFormatter();
+        }
+        return $this->consoleFormatter;
+    }
+
     /**
      * Get the configuration instance (lazy loaded)
      *
@@ -195,7 +213,6 @@ class WimdManager
      */
     protected function getConfig(): RenderingConfig
     {
-        $this->initializeMode();
         return $this->config;
     }
 
@@ -345,71 +362,13 @@ class WimdManager
     /**
      * Display the final seeding report.
      *
-     * @param bool $forceOutput Whether to create a default output if none exists
      * @return string|null The report as a string (if using BufferedOutput)
      */
-    public function displayReport(bool $forceOutput = true): ?string
+    public function displayReport(): ?string
     {
-        // Calculate the total execution time
         $totalTime = microtime(true) - $this->startTime;
-
-        // Early return if no output needed
-        if (!$this->output && !$forceOutput) {
-            return null;
-        }
-
-        $shouldReturnString = false;
-        $originalOutput = $this->output;
-        $tempOutput = null;
-
-        try {
-            // Handle output interface creation
-            if (!$this->output && $forceOutput) {
-                $tempOutput = new BufferedOutput();
-                $this->output = $tempOutput;
-                $shouldReturnString = true;
-            }
-
-            // If we still don't have an output, create a temporary one for CLI
-            if (!$this->output) {
-                $tempOutput = new BufferedOutput();
-                $renderer = $this->getRenderer();
-                $renderer->setOutput($tempOutput);
-                $renderer->entryPoint($this->getAllSeeders(), $totalTime);
-
-                // Echo the report directly for CLI usage
-                $report = $tempOutput->fetch();
-                echo $report;
-
-                return null;
-            }
-
-            // Render the report with the configured renderer
-            $renderer = $this->getRenderer();
-            $renderer->setOutput($this->output);
-            $renderer->entryPoint($this->getAllSeeders(), $totalTime);
-
-            // Handle buffered output return
-            if ($shouldReturnString && $this->output instanceof BufferedOutput) {
-                $report = $this->output->fetch();
-                echo $report;
-                return $report;
-            }
-
-        } finally {
-            // Always restore original state
-            $this->output = $originalOutput;
-
-            // Update renderer output if it exists
-            if ($this->renderer && $this->output) {
-                $this->renderer->setOutput($this->output);
-            }
-
-            // Clean up temporary output
-            $tempOutput = null;
-        }
-
-        return null;
+        $data = new DataMetric($this->getAllSeeders(), $totalTime);
+        return $this->getRenderer()->renderReport($data);
     }
 
     /**
@@ -461,7 +420,6 @@ class WimdManager
      */
     public function getMode(): string
     {
-        $this->initializeMode();
         return $this->mode;
     }
 
@@ -473,6 +431,11 @@ class WimdManager
     public function getConfigInstance(): RenderingConfig
     {
         return $this->getConfig();
+    }
+
+    public function getFormatterInstance(): ConsoleFormatter
+    {
+        return $this->getConsoleFormatter();
     }
 
     /**
@@ -572,5 +535,23 @@ class WimdManager
             'silent' => $this->silent,
             'cleaned_up' => $this->cleanedUp,
         ];
+    }
+
+    /**
+     * Simple function to write to log file, creates path and file if needed
+     */
+    function writeLog($filePath, $message)
+    {
+        // Create file if it doesn't exist
+        if (!file_exists($filePath)) {
+            touch($filePath);
+            chmod($filePath, 0644);
+        }
+
+        // Write log entry with timestamp
+        $timestamp = date('Y-m-d H:i:s');
+        $logEntry = "[{$timestamp}] {$message}" . PHP_EOL;
+
+        file_put_contents($filePath, $logEntry, FILE_APPEND | LOCK_EX);
     }
 }

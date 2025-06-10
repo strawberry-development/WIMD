@@ -13,8 +13,6 @@ use function PHPUnit\Framework\isEmpty;
 class ConsoleRenderer extends BaseRenderer
 {
     protected array $metrics = [];
-    protected array $seeders = [];
-    protected float $totalTime;
 
     // Component renderers
     protected PerformanceRenderer $performanceRenderer;
@@ -32,7 +30,6 @@ class ConsoleRenderer extends BaseRenderer
     {
         parent::__construct();
         $this->metricsCollector = new MetricsCollector();
-        $this->dataMetric = new DataMetric();
     }
 
     public function constructRenderer(): void
@@ -44,38 +41,16 @@ class ConsoleRenderer extends BaseRenderer
     }
 
     /**
-     * Main entry point for rendering the seeding report
-     *
-     * @param array $seeders
-     * @param float $totalTime
-     * @return void
-     */
-    public function entryPoint(array $seeders, float $totalTime): void
-
-    {
-        $this->totalTime = round($totalTime, 4);
-        $this->seeders = $seeders;
-
-        // Create data metrics
-        $this->dataMetric->createFromSeeders(
-            $this->seeders,
-            $this->totalTime,
-            $this->metricsCollector
-        );
-
-        $this->constructRenderer();
-
-        // Render the full report
-        $this->renderReport();
-    }
-
-    /**
      * Render the final seeding report in full detail mode
      *
-     * @return void
+     * @param DataMetric $dataMetric
+     * @return string
      */
-    public function renderReport(): void
+    public function renderReport(DataMetric $dataMetric): string
     {
+        $this->dataMetric = $dataMetric;
+        $this->constructRenderer();
+
         $displaySetting = $this->config->getDisplaySettings();
 
         $output = [$this->createTitleBox()];
@@ -108,5 +83,7 @@ class ConsoleRenderer extends BaseRenderer
         $output[] = $this->createFooter();
 
         $this->writeOutput(...$output);
+
+        return implode('', $output);
     }
 }
