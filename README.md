@@ -25,6 +25,10 @@ You can install the package via composer:
 ```bash
 composer require strawberrydev/wimd
 ````
+Or for alpha version
+```
+composer require strawberrydev/wimd:"dev-main"
+```
 
 ## Configuration
 
