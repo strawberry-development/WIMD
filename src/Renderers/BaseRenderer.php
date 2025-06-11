@@ -4,10 +4,11 @@ namespace Wimd\Renderers;
 
 use Illuminate\Support\Facades\Config;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wimd\Config\RenderingConfig;
 use Wimd\Facades\Wimd;
-use Wimd\Support\ConsoleFormatter;
+use Wimd\Console\Helper\ConsoleFormatter;
 
 abstract class BaseRenderer implements RendererInterface
 {
@@ -68,9 +69,7 @@ abstract class BaseRenderer implements RendererInterface
      */
     protected function writeOutput(string ...$texts): void
     {
-        if (!$this->output) {
-            $this->output = new BufferedOutput();
-        }
+        $this->output = new ConsoleOutput();
 
         $this->output->setDecorated($this->isColored);
 

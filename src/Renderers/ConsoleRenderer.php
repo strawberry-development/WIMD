@@ -60,7 +60,6 @@ class ConsoleRenderer extends BaseRenderer
 
         // Performance Charts
         if ($displaySetting['performance_charts'] ?? true) {
-            $output[] = $this->performanceRenderer->renderPerformanceDistribution();
             $output[] = $this->performanceRenderer->renderPerformanceChart();
         }
 

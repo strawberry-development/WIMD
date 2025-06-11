@@ -10,8 +10,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Wimd\Config\RenderingConfig;
+use Wimd\Console\Helper\ConsoleFormatter;
 use Wimd\Facades\Wimd;
-use Wimd\Support\ConsoleFormatter;
 
 /**
  * WimdDatabaseSeeder
@@ -56,10 +56,12 @@ abstract class WimdDatabaseSeeder extends Seeder
     {
         $classes = Arr::wrap($class);
         Wimd::setSilent($silent);
+        Wimd::startMonitoring();
 
         foreach ($classes as $seederClass) {
             $this->executeSeeder($seederClass, $silent, $parameters);
         }
+        Wimd::endMonitoring();
     }
 
     /**
@@ -225,12 +227,6 @@ abstract class WimdDatabaseSeeder extends Seeder
      */
     public function displayWimdReport(?OutputInterface $output = null, bool $returnAsString = false): ?string
     {
-        $reportOutput = $this->prepareReportOutput($output, $returnAsString);
-
-        if ($reportOutput !== null) {
-            Wimd::setOutput($reportOutput);
-        }
-
         $result = Wimd::displayReport();
 
         $filePath = $this->config->getLogFilePath();
@@ -241,21 +237,5 @@ abstract class WimdDatabaseSeeder extends Seeder
         }
 
         return $result;
-    }
-
-    /**
-     * Prepare the output interface for report generation
-     *
-     * @param OutputInterface|null $output
-     * @param bool $returnAsString
-     * @return OutputInterface|null
-     */
-    protected function prepareReportOutput(?OutputInterface $output, bool $returnAsString): ?OutputInterface
-    {
-        if ($output === null && $returnAsString) {
-            return new BufferedOutput();
-        }
-
-        return $output;
     }
 }

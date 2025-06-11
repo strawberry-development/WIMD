@@ -123,7 +123,6 @@ class SystemRenderer extends Component
         $output = [];
 
         $output[] = $this->createSectionHeader("SYSTEM HEALTH CHECK");
-
         // Group checks by category
         $dbChecks = $this->performDatabaseChecks();
         $fileSystemChecks = $this->performFileSystemChecks();

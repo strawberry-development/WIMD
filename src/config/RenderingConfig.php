@@ -32,10 +32,8 @@ class RenderingConfig
             'recommendations' => true,
         ],
         'styling' => [
-            'use_unicode' => true,
             'use_emojis' => true,
             'use_colors' => true,
-            'border_style' => 'rounded',
             'progress_format' => [
                 'bar' => '[%bar%] %percent:3s%%',
                 'base' => '%elapsed:6s% spend / %remaining:-6s% left',
@@ -48,29 +46,7 @@ class RenderingConfig
             'average' => 100,
             'slow' => 10
         ],
-        'memory' => [
-            'warnings_enabled' => true,
-            'thresholds' => [
-                'notice' => '50M',
-                'warning' => '100M',
-                'critical' => '200M',
-            ],
-            'per_record' => [
-                'efficient' => 1,
-                'acceptable' => 5,
-                'concerning' => 20,
-                'excessive' => 50
-            ],
-            'options' => [
-                'display_during_seeding' => true,
-                'log_excessive_usage' => true,
-                'abort_threshold' => null,
-                'show_optimization_tips' => true,
-                'track_usage_over_time' => false,
-            ],
-        ],
-        'debug' => [
-            'verbose' => false,
+        'logging' => [
             'log_to_file' => false,
             'log_file' => null
         ],
@@ -90,16 +66,6 @@ class RenderingConfig
      * Valid performance threshold levels
      */
     private const VALID_PERFORMANCE_LEVELS = ['excellent', 'good', 'average', 'slow'];
-
-    /**
-     * Valid memory threshold levels
-     */
-    private const VALID_MEMORY_LEVELS = ['notice', 'warning', 'critical'];
-
-    /**
-     * Valid per-record memory levels
-     */
-    private const VALID_PER_RECORD_LEVELS = ['efficient', 'acceptable', 'concerning', 'excessive'];
 
     /**
      * Constructor
@@ -144,9 +110,9 @@ class RenderingConfig
             );
         }
 
-        // Ensure debug log file has a default if logging is enabled
-        if ($this->settings['debug']['log_to_file'] && empty($this->settings['debug']['log_file'])) {
-            $this->settings['debug']['log_file'] = storage_path('logs/wimd-seeding.log');
+        // Ensure log file has a default if logging is enabled
+        if ($this->settings['logging']['log_to_file'] && empty($this->settings['logging']['log_file'])) {
+            $this->settings['logging']['log_file'] = storage_path('logs/wimd-seeding.log');
         }
     }
 
@@ -340,114 +306,28 @@ class RenderingConfig
     }
 
     // =============================
-    // MEMORY METHODS
+    // LOGGING METHODS
     // =============================
-
-    public function areMemoryWarningsEnabled(): bool
-    {
-        return $this->settings['memory']['warnings_enabled'] ?? true;
-    }
-
-    public function getMemoryThreshold(string $level): ?string
-    {
-        if (!in_array($level, self::VALID_MEMORY_LEVELS, true)) {
-            throw new InvalidArgumentException(
-                sprintf('Invalid memory level "%s". Valid levels are: %s',
-                    $level,
-                    implode(', ', self::VALID_MEMORY_LEVELS)
-                )
-            );
-        }
-
-        return $this->settings['memory']['thresholds'][$level] ?? null;
-    }
-
-    public function getMemoryThresholds(): array
-    {
-        return $this->settings['memory']['thresholds'];
-    }
-
-    public function getPerRecordMemoryThreshold(string $level): ?int
-    {
-        if (!in_array($level, self::VALID_PER_RECORD_LEVELS, true)) {
-            throw new InvalidArgumentException(
-                sprintf('Invalid per-record level "%s". Valid levels are: %s',
-                    $level,
-                    implode(', ', self::VALID_PER_RECORD_LEVELS)
-                )
-            );
-        }
-
-        return $this->settings['memory']['per_record'][$level] ?? null;
-    }
-
-    public function getPerRecordMemoryThresholds(): array
-    {
-        return $this->settings['memory']['per_record'];
-    }
-
-    public function getMemoryOption(string $option): mixed
-    {
-        return $this->settings['memory']['options'][$option] ?? null;
-    }
-
-    public function getMemoryOptions(): array
-    {
-        return $this->settings['memory']['options'];
-    }
-
-    public function getMemorySettings(): array
-    {
-        return $this->settings['memory'];
-    }
-
-    public function setMemoryOption(string $option, mixed $value): self
-    {
-        $this->settings['memory']['options'][$option] = $value;
-        return $this;
-    }
-
-    public function getMemoryRating(int $kbPerRecord): string
-    {
-        $thresholds = $this->getPerRecordMemoryThresholds();
-
-        return match (true) {
-            $kbPerRecord <= $thresholds['efficient'] => 'efficient',
-            $kbPerRecord <= $thresholds['acceptable'] => 'acceptable',
-            $kbPerRecord <= $thresholds['concerning'] => 'concerning',
-            $kbPerRecord <= $thresholds['excessive'] => 'excessive',
-            default => 'critical'
-        };
-    }
-
-    // =============================
-    // DEBUG METHODS
-    // =============================
-
-    public function isDebugVerbose(): bool
-    {
-        return $this->settings['debug']['verbose'] ?? false;
-    }
 
     public function isLogToFileEnabled(): bool
     {
-        return $this->settings['debug']['log_to_file'] ?? false;
+        return $this->settings['logging']['log_to_file'] ?? false;
     }
 
     public function getLogFilePath(): string
     {
-        return $this->settings['debug']['log_file']
+        return $this->settings['logging']['log_file']
             ?? storage_path('logs/wimd-seeding.log');
     }
 
-    public function getDebugSettings(): array
+    public function getLoggingSettings(): array
     {
-        return $this->settings['debug'];
+        return $this->settings['logging'];
     }
 
-    public function setDebugOption(string $option, mixed $value): self
+    public function setLoggingOption(string $option, mixed $value): self
     {
-        $this->settings['debug'][$option] = $value;
+        $this->settings['logging'][$option] = $value;
         return $this;
     }
 

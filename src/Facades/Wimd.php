@@ -3,7 +3,10 @@
 namespace Wimd\Facades;
 
 use Illuminate\Support\Facades\Facade;
-use Wimd\Support\ConsoleFormatter;
+use Symfony\Component\Console\Output\OutputInterface;
+use Wimd\Console\Helper\ConsoleFormatter;
+use Wimd\Model\DataMetric;
+use Wimd\Renderers\ConsoleRenderer;
 use Wimd\WimdManager;
 use Wimd\Config\RenderingConfig;
 
@@ -17,7 +20,8 @@ use Wimd\Config\RenderingConfig;
  * methods through Laravel's facade system.
  */
 /**
- * @method static WimdManager setOutput(\Symfony\Component\Console\Output\OutputInterface $output)
+ * @method static WimdManager setOutput(OutputInterface $output)
+ * @method static OutputInterface getOutput()
  * @method static WimdManager setMode(string $mode)
  * @method static WimdManager registerSeeder(string $seederClass, array $options = [])
  * @method static WimdManager updateMetrics(string $seederClass, int $recordsAdded, float $executionTime)
@@ -27,12 +31,14 @@ use Wimd\Config\RenderingConfig;
  * @method static array|null getSeederMetrics(string $seederClass)
  * @method static array findUnregisteredSeeders(string $seedersPath = null)
  * @method static string displayReport()
+ * @method static DataMetric startMonitoring()
+ * @method static DataMetric endMonitoring()
  * @method static bool isSilent()
  * @method static WimdManager setSilent(bool $silent)
  * @method static array getMemoryUsage()
  * @method static WimdManager clearCache()
- * @method static array getStats()
  * @method static void cleanup()
+ * @method static ConsoleRenderer getRenderer()
  * @method static void writeLog(string $filePath, string $message)
  *
  * @see \Wimd\WimdManager

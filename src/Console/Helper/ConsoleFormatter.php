@@ -1,8 +1,9 @@
 <?php
 
-namespace Wimd\Support;
+namespace Wimd\Console\Helper;
 
 use Symfony\Component\Console\Output\OutputInterface;
+use Wimd\Facades\Wimd;
 
 /**
  * Generic console formatter that handles multiple text segments with automatic spacing
@@ -22,12 +23,12 @@ class ConsoleFormatter
     private const PADDING = 1;
 
     private int $lineWidth;
-    private OutputInterface|null $output;
+    private OutputInterface $output;
 
-    public function __construct(int $lineWidth = null, OutputInterface $output = null)
+    public function __construct()
     {
-        $this->lineWidth = $lineWidth ?? $this->detectTerminalWidth();
-        $this->output = $output;
+        $this->lineWidth = $this->detectTerminalWidth();
+        $this->output = Wimd::getOutput();
     }
 
     /**

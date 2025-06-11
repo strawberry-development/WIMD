@@ -84,12 +84,6 @@ class SeederMetrics
     protected array $batchSizes = [];
 
     /**
-     * Memory warnings
-     * @var array
-     */
-    protected array $memoryWarnings = [];
-
-    /**
      * Memory usage over time (if tracking enabled)
      * @var array
      */
@@ -160,14 +154,6 @@ class SeederMetrics
             'records' => $this->recordsAdded,
             'elapsed' => $this->executionTime
         ];
-
-        // Track memory usage if enabled
-        if (Config::get('wind.memory.options.track_usage_over_time', false)) {
-            $this->trackMemoryUsage();
-        }
-
-        // Check memory warnings
-        $this->checkMemoryWarnings();
     }
 
     /**
@@ -184,11 +170,6 @@ class SeederMetrics
             'time' => $batchTime,
             'timestamp' => microtime(true)
         ];
-
-        // Check memory warnings after each batch if display during seeding is enabled
-        if (Config::get('wind.memory.options.display_during_seeding', true)) {
-            $this->checkMemoryWarnings();
-        }
     }
 
     /**
@@ -207,38 +188,6 @@ class SeederMetrics
             'peak' => $peak,
             'records' => $this->recordsAdded
         ];
-    }
-
-    /**
-     * Check memory usage against configured thresholds
-     *
-     * @return array|null Warning info or null if no warning
-     */
-    public function checkMemoryWarnings(): ?array
-    {
-        $warning = MemoryWarnings::checkMemoryUsage($this);
-
-        if ($warning) {
-            $this->memoryWarnings[] = $warning;
-
-            // Handle abort case if needed
-            if ($warning['abort']) {
-                // This will typically be caught by the seeder command
-                throw new \RuntimeException("Seeding aborted: {$warning['message']}");
-            }
-        }
-
-        return $warning;
-    }
-
-    /**
-     * Get memory warnings
-     *
-     * @return array
-     */
-    public function getMemoryWarnings(): array
-    {
-        return $this->memoryWarnings;
     }
 
     /**

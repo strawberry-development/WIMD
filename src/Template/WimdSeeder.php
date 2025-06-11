@@ -13,7 +13,7 @@ use Throwable;
 use Wimd\Console\Helper\WindProgressBar;
 use Wimd\Contracts\WimdSeederInterface;
 use Wimd\Facades\Wimd;
-use Wimd\Support\ConsoleFormatter;
+use Wimd\Console\Helper\ConsoleFormatter;
 
 /**
  * WimdSeeder
@@ -130,7 +130,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     public function __construct()
     {
         $this->output = new ConsoleOutput();
-        $this->output->setDecorated(true);
 
         $this->loadConfig();
 
@@ -430,7 +429,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         if (!$this->silent) {
             $this->writeOutput([
                 "",
-                "  <fg=red;options=bold>❌ {$errorType}: {$message}</>",
+                "  <fg=red;options=bold>{$errorType}: {$message}</>",
                 "  <fg=red>{$errorMessage}</>",
                 "  <fg=gray>Location: {$errorLocation}</>"
             ], true);

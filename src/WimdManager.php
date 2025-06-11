@@ -3,14 +3,14 @@
 namespace Wimd;
 
 use Illuminate\Contracts\Foundation\Application;
-use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wimd\Config\RenderingConfig;
 use Wimd\Metrics\MetricsCollector;
 use Wimd\Model\DataMetric;
 use Wimd\Renderers\ConsoleRenderer;
 use Wimd\Renderers\RendererInterface;
-use Wimd\Support\ConsoleFormatter;
+use Wimd\Console\Helper\ConsoleFormatter;
 
 /**
  * WimdManager
@@ -45,13 +45,6 @@ class WimdManager
     protected $output = null;
 
     /**
-     * Start time of the seeding process.
-     *
-     * @var float
-     */
-    protected $startTime;
-
-    /**
      * Array of registered seeders and their metrics.
      *
      * @var array
@@ -75,9 +68,9 @@ class WimdManager
     /**
      * The output renderer.
      *
-     * @var RendererInterface|null
+     * @var ConsoleRenderer|null
      */
-    protected ?RendererInterface $renderer = null;
+    protected ?ConsoleRenderer $renderer = null;
 
     /**
      * Rendering configuration
@@ -115,6 +108,13 @@ class WimdManager
     private ?ConsoleFormatter $consoleFormatter = null;
 
     /**
+     * The main DataMetric instance for tracking all metrics
+     *
+     * @var DataMetric
+     */
+    private DataMetric $dataMetric;
+
+    /**
      * Create a new WIMD manager instance.
      *
      * @param Application $app
@@ -122,10 +122,12 @@ class WimdManager
     public function __construct(Application $app)
     {
         $this->app = $app;
-        $this->startTime = microtime(true);
 
         // Lazy load config and mode to reduce constructor overhead
         $this->lazyInitialize();
+
+        // Initialize DataMetric with optional MetricsCollector
+        $this->dataMetric = new DataMetric($this->config);
     }
 
     /**
@@ -185,9 +187,9 @@ class WimdManager
     /**
      * Get the renderer instance (lazy loaded)
      *
-     * @return RendererInterface
+     * @return ConsoleRenderer
      */
-    protected function getRenderer(): RendererInterface
+    protected function getRenderer(): ConsoleRenderer
     {
         if ($this->renderer === null) {
             $this->renderer = new ConsoleRenderer();
@@ -225,7 +227,6 @@ class WimdManager
     public function setOutput(OutputInterface $output): self
     {
         $this->output = $output;
-        $this->output->setDecorated(true);
 
         // Update renderer if it exists
         if ($this->renderer) {
@@ -233,6 +234,15 @@ class WimdManager
         }
 
         return $this;
+    }
+
+    public function getOutput(): OutputInterface
+    {
+        if($this->output === null) {
+            $this->output = new NullOutput();
+            $this->setOutput($this->output);
+        }
+        return $this->output;
     }
 
     /**
@@ -248,49 +258,6 @@ class WimdManager
         // Reset renderer to apply new mode
         $this->renderer = null;
 
-        return $this;
-    }
-
-    /**
-     * Register a seeder with the manager.
-     *
-     * @param string $seederClass
-     * @param array $options
-     * @return self
-     */
-    public function registerSeeder(string $seederClass, array $options = []): self
-    {
-        $tableName = $this->getTableNameFromSeeder($seederClass);
-
-        $this->seeders[$seederClass] = [
-            'table' => $tableName,
-            'options' => $options,
-            'metrics' => $this->getMetrics()->createSeederMetrics($seederClass, $tableName),
-        ];
-
-        // Clear unregistered seeders cache to force refresh
-        $this->unregisteredSeeders = [];
-
-        return $this;
-    }
-
-    /**
-     * Update metrics for a seeder.
-     *
-     * @param string $seederClass
-     * @param int $recordsAdded
-     * @param float $executionTime
-     * @return self
-     */
-    public function updateMetrics(string $seederClass, int $recordsAdded, float $executionTime): self
-    {
-        if (isset($this->seeders[$seederClass])) {
-            $this->getMetrics()->updateSeederMetrics(
-                $this->seeders[$seederClass]['metrics'],
-                $recordsAdded,
-                $executionTime
-            );
-        }
         return $this;
     }
 
@@ -360,15 +327,29 @@ class WimdManager
     }
 
     /**
-     * Display the final seeding report.
+     * Display the final seeding report using the self-contained DataMetric.
      *
      * @return string|null The report as a string (if using BufferedOutput)
      */
     public function displayReport(): ?string
     {
-        $totalTime = microtime(true) - $this->startTime;
-        $data = new DataMetric($this->getAllSeeders(), $totalTime);
-        return $this->getRenderer()->renderReport($data);
+        // Render the report directly from the DataMetric
+        if($this->renderer === null){
+            $this->getRenderer();
+        }
+        return $this->renderer->renderReport($this->dataMetric);
+    }
+
+    public function endMonitoring(): DataMetric
+    {
+        // End the data metric collection (this finalizes all calculations)
+        return $this->dataMetric->end();
+    }
+
+    public function startMonitoring(): DataMetric
+    {
+        // End the data metric collection (this finalizes all calculations)
+        return $this->dataMetric->start();
     }
 
     /**
@@ -519,25 +500,6 @@ class WimdManager
     }
 
     /**
-     * Get statistics about the manager's current state.
-     *
-     * @return array
-     */
-    public function getStats(): array
-    {
-        return [
-            'registered_seeders' => count($this->seeders),
-            'unregistered_seeders' => count($this->unregisteredSeeders),
-            'cached_table_names' => count($this->tableNameCache),
-            'execution_time' => microtime(true) - $this->startTime,
-            'memory_usage' => $this->getMemoryUsage(),
-            'mode' => $this->getMode(),
-            'silent' => $this->silent,
-            'cleaned_up' => $this->cleanedUp,
-        ];
-    }
-
-    /**
      * Simple function to write to log file, creates path and file if needed
      */
     function writeLog($filePath, $message)
@@ -553,5 +515,198 @@ class WimdManager
         $logEntry = "[{$timestamp}] {$message}" . PHP_EOL;
 
         file_put_contents($filePath, $logEntry, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * Get the current DataMetric instance
+     *
+     * @return DataMetric
+     */
+    public function getDataMetric(): DataMetric
+    {
+        return $this->dataMetric;
+    }
+
+    /**
+     * Start or restart DataMetric collection
+     *
+     * @return self
+     */
+    public function startMetrics(): self
+    {
+        $this->dataMetric->start();
+        return $this;
+    }
+
+    /**
+     * Add records directly to DataMetric
+     *
+     * @param int $records
+     * @return self
+     */
+    public function addRecordsToMetrics(int $records): self
+    {
+        $this->dataMetric->addRecords($records);
+        return $this;
+    }
+
+    /**
+     * Update a specific metric directly in DataMetric
+     *
+     * @param string $metricName
+     * @param mixed $value
+     * @return self
+     */
+    public function updateSpecificMetric(string $metricName, $value): self
+    {
+        $this->dataMetric->updateMetric($metricName, $value);
+        return $this;
+    }
+
+    /**
+     * Bulk update multiple metrics in DataMetric
+     *
+     * @param array $metrics
+     * @return self
+     */
+    public function updateMultipleMetrics(array $metrics): self
+    {
+        $this->dataMetric->updateMetrics($metrics);
+        return $this;
+    }
+
+    /**
+     * Reset all DataMetric metrics
+     *
+     * @return self
+     */
+    public function resetDataMetrics(): self
+    {
+        $this->dataMetric->resetMetrics();
+        return $this;
+    }
+
+    /**
+     * End DataMetric collection and finalize calculations
+     *
+     * @return self
+     */
+    public function endMetrics(): self
+    {
+        $this->dataMetric->end();
+        return $this;
+    }
+
+    /**
+     * Get DataMetric as array
+     *
+     * @return array
+     */
+    public function getDataMetricArray(): array
+    {
+        return $this->dataMetric->toArray();
+    }
+
+    /**
+     * Check if DataMetric is currently active
+     *
+     * @return bool
+     */
+    public function isDataMetricActive(): bool
+    {
+        return $this->dataMetric->isActive();
+    }
+
+    /**
+     * Get elapsed time from DataMetric
+     *
+     * @return float
+     */
+    public function getDataMetricElapsedTime(): float
+    {
+        return $this->dataMetric->getElapsedTime();
+    }
+
+    /**
+     * Update total time in DataMetric
+     *
+     * @param float $time
+     * @return self
+     */
+    public function updateTotalTime(float $time): self
+    {
+        $this->dataMetric->updateTotalTime($time);
+        return $this;
+    }
+
+    /**
+     * Add a seeder result directly to DataMetric
+     *
+     * @param string $seederClass
+     * @param int $recordsAdded
+     * @param float $executionTime
+     * @param string|null $tableName
+     * @return self
+     */
+    public function addSeederResultToDataMetric(string $seederClass, int $recordsAdded, float $executionTime, string $tableName = null): self
+    {
+        $tableName = $tableName ?? $this->getTableNameFromSeeder($seederClass);
+        $this->dataMetric->addSeederResult($seederClass, $recordsAdded, $executionTime, $tableName);
+        return $this;
+    }
+
+    /**
+     * Register a seeder with the manager and initialize in DataMetric.
+     *
+     * @param string $seederClass
+     * @param array $options
+     * @return self
+     */
+    public function registerSeeder(string $seederClass, array $options = []): self
+    {
+        $tableName = $this->getTableNameFromSeeder($seederClass);
+
+        // Keep local tracking for compatibility (if needed by other parts)
+        $this->seeders[$seederClass] = [
+            'table' => $tableName,
+            'options' => $options,
+            'metrics' => $this->getMetrics()->createSeederMetrics($seederClass, $tableName),
+        ];
+
+        // Initialize in DataMetric (with 0 records initially)
+        $this->dataMetric->addSeederResult($seederClass, 0, 0.0, $tableName);
+
+        // Clear unregistered seeders cache to force refresh
+        $this->unregisteredSeeders = [];
+
+        return $this;
+    }
+
+    /**
+    * Update metrics for a seeder directly in DataMetric.
+    *
+    * @param string $seederClass
+    * @param int $recordsAdded
+    * @param float $executionTime
+    * @return self
+    */
+    public function updateMetrics(string $seederClass, int $recordsAdded, float $executionTime): self
+    {
+        // Get table name from seeder class
+        $tableName = $this->getTableNameFromSeeder($seederClass);
+
+        // Update metrics directly in DataMetric
+        $this->dataMetric->addSeederResult($seederClass, $recordsAdded, $executionTime, $tableName);
+
+        // Also update local tracking if seeder is registered (for backward compatibility)
+        if (isset($this->seeders[$seederClass])) {
+            $this->getMetrics()->updateSeederMetrics(
+                $this->seeders[$seederClass]['metrics'],
+                $recordsAdded,
+                $executionTime
+            );
+        }
+
+        return $this;
     }
 }
