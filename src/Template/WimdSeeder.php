@@ -485,8 +485,7 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
             $this->writeOutput($message, true);
         }
         $this->progressBar = new WindProgressBar($this->output, $total);
-        //$this->progressBar->setRedrawFrequency(max(1, min(100, intval($total / 100))));
-        $this->progressBar->setRedrawFrequency(1555);
+        $this->progressBar->setRedrawFrequency(2500);
         $this->progressBar->setBarWidth(50);
         $this->progressBar->setBarCharacter('#');
         $this->progressBar->setEmptyBarCharacter('.');

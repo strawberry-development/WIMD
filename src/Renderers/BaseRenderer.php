@@ -45,8 +45,6 @@ abstract class BaseRenderer implements RendererInterface
     {
         $this->config = Wimd::getConfigInstance();
         $this->consoleFormatter = Wimd::getFormatterInstance();
-
-        $this->isColored = $this->config->isColorsEnabled();
     }
 
     /**
@@ -71,7 +69,7 @@ abstract class BaseRenderer implements RendererInterface
     {
         $this->output = new ConsoleOutput();
 
-        $this->output->setDecorated($this->isColored);
+        $this->output->setDecorated(true);
 
         foreach ($texts as $text) {
             // Add padding of two spaces to each line

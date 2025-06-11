@@ -33,7 +33,6 @@ class RenderingConfig
         ],
         'styling' => [
             'use_emojis' => true,
-            'use_colors' => true,
             'progress_format' => [
                 'bar' => '[%bar%] %percent:3s%%',
                 'base' => '%elapsed:6s% spend / %remaining:-6s% left',
@@ -188,11 +187,6 @@ class RenderingConfig
     public function isEmojisEnabled(): bool
     {
         return $this->settings['styling']['use_emojis'] ?? true;
-    }
-
-    public function isColorsEnabled(): bool
-    {
-        return $this->settings['styling']['use_colors'] ?? true;
     }
 
     public function getStylingSettings(): array
@@ -412,13 +406,11 @@ class RenderingConfig
 
     public function enableStyling(): self
     {
-        return $this->setStylingOption('use_emojis', true)
-            ->setStylingOption('use_colors', true);
+        return $this->setStylingOption('use_emojis', true);
     }
 
     public function disableStyling(): self
     {
-        return $this->setStylingOption('use_emojis', false)
-            ->setStylingOption('use_colors', false);
+        return $this->setStylingOption('use_emojis', false);
     }
 }
