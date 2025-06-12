@@ -2,7 +2,6 @@
 namespace Wimd\Renderers\Component;
 
 use Wimd\Model\DataMetric;
-use Wimd\Support\EmojiRegistry;
 
 /**
  * PerformanceRenderer is responsible for rendering performance-related visualizations

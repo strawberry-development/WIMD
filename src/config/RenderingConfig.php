@@ -24,6 +24,7 @@ class RenderingConfig
      */
     private const DEFAULT_CONFIG = [
         'mode' => 'full',
+        'batch_size' => 500,
         'display' => [
             'detailed_table' => true,
             'system_info' => true,
@@ -35,8 +36,7 @@ class RenderingConfig
             'use_emojis' => true,
             'progress_format' => [
                 'bar' => '[%bar%] %percent:3s%%',
-                'base' => '%elapsed:6s% spend / %remaining:-6s% left',
-                'full' => '| Memory %memory:6s%s'
+                'base' => '%elapsed:6s% spend / %remaining:-6s% left | Memory %memory:6s%s'
             ]
         ],
         'thresholds' => [
@@ -59,7 +59,7 @@ class RenderingConfig
     /**
      * Valid progress format types
      */
-    private const VALID_PROGRESS_TYPES = ['bar', 'base', 'full'];
+    private const VALID_PROGRESS_TYPES = ['bar', 'base'];
 
     /**
      * Valid performance threshold levels
@@ -122,6 +122,11 @@ class RenderingConfig
     public function getMode(): string
     {
         return $this->settings['mode'];
+    }
+
+    public function getBatchSize(): string
+    {
+        return $this->settings['batch_size'];
     }
 
     public function setMode(string $mode): self
@@ -222,11 +227,6 @@ class RenderingConfig
     public function getProgressFormats(): array
     {
         return $this->settings['styling']['progress_format'] ?? [];
-    }
-
-    public function getFullProgressFormat(): string
-    {
-        return $this->getProgressFormat('base') . $this->getProgressFormat('full');
     }
 
     public function setProgressFormat(string $type, string $format): self

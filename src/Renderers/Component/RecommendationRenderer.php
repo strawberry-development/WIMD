@@ -3,7 +3,6 @@ namespace Wimd\Renderers\Component;
 
 use Wimd\Model\DataMetric;
 use Wimd\Renderers\ConsoleRenderer;
-use Wimd\Support\EmojiRegistry;
 
 /**
  * RecommendationRenderer is responsible for generating and rendering performance recommendations
@@ -18,14 +17,13 @@ class RecommendationRenderer extends Component
     public function renderRecommendations(): string
     {
         $recommendations = $this->generateRecommendations();
-        $recommendationEmoji = EmojiRegistry::getEmoji('recommendation');
         $output = [];
 
         $output[] = $this->createSectionHeader("RECOMMENDATIONS");
 
         // Output recommendations
         foreach ($recommendations as $index => $recommendation) {
-            $output[] = "{$recommendationEmoji} <fg=white;options=bold>" . ($index + 1) . ".</> {$recommendation}";
+            $output[] = "<fg=white;options=bold>" . ($index + 1) . ".</> {$recommendation}";
         }
 
         return implode("\n", $output);

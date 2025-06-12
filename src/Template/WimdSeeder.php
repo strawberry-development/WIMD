@@ -93,11 +93,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
     protected string $bar;
 
     /**
-     * Progress bar completion format addition
-     */
-    protected string $formatCompletion;
-
-    /**
      * Store error counts during execution
      */
     protected int $errorCount = 0;
@@ -151,29 +146,18 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
      */
     protected function loadConfig(): void
     {
-        $this->mode = config('wimd.mode', 'full');
-        $this->batchSize = config('wimd.batch_size', 500);
-        $this->useTransactions = config('wimd.use_transactions', true);
-        $this->continueOnError = config('wimd.continue_on_error', false);
-        $this->maxErrors = config('wimd.max_errors', 5);
-        $this->maxCacheSize = config('wimd.max_cache_size', 1000);
-        $this->memoryCheckInterval = config('wimd.memory_check_interval', 100);
-        $this->memoryThreshold = config('wimd.memory.thresholds.warning', '50M');
+        $config = Wimd::getConfigInstance();
+        $this->mode = $config->getMode();
+        $this->batchSize = $config->getBatchSize();
+        $this->useTransactions = true;
+        $this->continueOnError = false;
+        $this->maxErrors = 5;
+        $this->maxCacheSize = 1000;
+        $this->memoryCheckInterval = 100;
+        $this->memoryThreshold = '10M';
 
-        $this->bar = config(
-            'wimd.styling.progress_format.bar',
-            '[%bar%] %percent:3s%%'
-        );
-
-        $this->formatBase = config(
-            'wimd.styling.progress_format.base',
-            '%elapsed:6s% spend / %remaining:-6s% left'
-        );
-
-        $this->formatCompletion = " " . config(
-                'wimd.styling.progress_format.full',
-                '| Memory %memory:6s%s'
-            );
+        $this->bar = $config->getProgressFormat('bar');
+        $this->formatBase = $config->getProgressFormat();
     }
 
     /**
@@ -490,10 +474,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         $this->progressBar->setBarCharacter('#');
         $this->progressBar->setEmptyBarCharacter('.');
         $this->progressBar->setProgressCharacter('');
-
-        if ($this->mode === 'full') {
-            $this->formatBase .= $this->formatCompletion;
-        }
 
         $this->progressBar->setFormat($this->bar, $this->formatBase);
         $this->progressBar->start();
@@ -1015,9 +995,6 @@ abstract class WimdSeeder extends Seeder implements WimdSeederInterface
         return $this;
     }
 
-    /**
-     * Set memory threshold
-     */
     public function setMemoryThreshold(string $threshold): self
     {
         $this->memoryThreshold = $threshold;

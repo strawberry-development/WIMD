@@ -1,8 +1,6 @@
 <?php
 namespace Wimd\Renderers\Component;
 
-use Wimd\Support\EmojiRegistry;
-
 /**
  * SystemRenderer is responsible for rendering system information
  * Cross-platform compatible for Windows, Linux, and macOS
@@ -201,9 +199,6 @@ class SystemRenderer extends Component
      */
     protected function formatHealthCheckResult(array $check): string
     {
-        $emoji = $this->config->isEmojisEnabled()
-            ? EmojiRegistry::getEmoji($this->severityEmojis[$check['severity']])
-            : '';
         $color = $this->severityColors[$check['severity']];
         $output = [];
         $details = null;
@@ -213,7 +208,7 @@ class SystemRenderer extends Component
             $details = " gray{({$check['details']})}";
         }
 
-        $output[] = $this->consoleFormatter->formatLine("{$emoji}  {$check['name']}{$details}", "{$color}{{$check['message']}}");
+        $output[] = $this->consoleFormatter->formatLine("{$check['name']}{$details}", "{$color}{{$check['message']}}");
         // Add recommendation if there's an issue
         if ($check['severity'] !== self::HEALTH_OK && !empty($check['recommendation'])) {
             $recommendation = "blue{{$check['recommendation']}}";

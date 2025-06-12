@@ -11,6 +11,8 @@ return [
     */
     'mode' => 'full',
 
+    'batch_size' => 500,
+
     /*
     |--------------------------------------------------------------------------
     | Display Settings
@@ -53,8 +55,7 @@ return [
 
         'progress_format' => [
             'bar' => '[%bar%] %percent:3s%%',
-            'base' => '%elapsed:6s% spend / %remaining:-6s% left',
-            'full' => '| Memory %memory:6s%s'
+            'base' => '%elapsed:6s% spend / %remaining:-6s% left | Memory %memory:6s%s'
         ]
     ],
 
