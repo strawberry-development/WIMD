@@ -189,7 +189,7 @@ class ConsoleFormatter
             'filler' => self::DEFAULT_FILLER,
             'filler_color' => 'gray',
             'distribution' => 'auto',
-            'min_filler_between' => 2,
+            'min_filler_between' => 0,
             'newline' => false,
             'align_last_right' => true,
         ];
@@ -203,7 +203,6 @@ class ConsoleFormatter
         // Process groups and flatten to calculate spacing
         $processedSegments = [];
         foreach ($segments as $segment) {
-
             if (is_array($segment) && isset($segment['type']) && $segment['type'] === 'group') {
                 // Combine group segments into one segment
                 $groupText = '';
@@ -248,7 +247,9 @@ class ConsoleFormatter
         }
 
         $fillerSections = $segmentCount - 1;
-        $availableFillerSpace = $this->lineWidth - $totalContentLength - self::PADDING * 2;
+
+        $totalPaddingSpace = $fillerSections * self::PADDING * 2;
+        $availableFillerSpace = $this->lineWidth - $totalContentLength - $totalPaddingSpace;
 
         // Distribute filler space
         $fillerDistribution = $this->calculateFillerDistribution(

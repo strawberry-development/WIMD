@@ -73,7 +73,6 @@ class ConsoleRenderer extends BaseRenderer
             $output[] = $this->systemRenderer->renderHealthCheck();
             $output[] = $this->systemRenderer->renderSystemInfo();
         }
-
         // Recommendations
         if ($displaySetting['recommendations'] ?? true) {
             $output[] = $this->recommendationRenderer->renderRecommendations();

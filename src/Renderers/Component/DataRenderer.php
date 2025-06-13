@@ -1,4 +1,5 @@
 <?php
+
 namespace Wimd\Renderers\Component;
 
 use Wimd\Model\DataMetric;
@@ -20,17 +21,23 @@ class DataRenderer extends Component
         $output[] = $this->createSectionHeader("DETAILED SEEDER METRICS");
 
         // Sort results by records per second (descending)
-        uasort($this->metric->seeders, function($a, $b) {
+        uasort($this->metric->seeders, function ($a, $b) {
             return $b['metrics']->recordsPerSecond <=> $a['metrics']->recordsPerSecond;
         });
 
         // Draw table header
-        $output[] = $this->consoleFormatter->formatLine("Seeder Records Time (sec) Records/sec Rating");
+        $output[] = $this->consoleFormatter->formatLine(
+            $this->consoleFormatter->constantWidth("Seeder", 20),
+            $this->consoleFormatter->constantWidth("Records", 20),
+            $this->consoleFormatter->constantWidth("Time (sec)", 20),
+            $this->consoleFormatter->constantWidth("Records/sec", 20),
+            $this->consoleFormatter->constantWidth("Rating", 20),
+        );
 
         // Process each seeder
         $rank = 1;
         $totalSeeders = count($this->metric->seeders);
-        $rankingColor = ['<fg=green;options=bold>', '<fg=green>', '<fg=yellow>', '<fg=red>', '<fg=red;options=bold>'];
+        $rankingColor = ['+green', 'green', 'yellow', 'red', '+red'];
 
         foreach ($this->metric->seeders as $seederClass => $seeder) {
             $metrics = $seeder['metrics'];
@@ -47,14 +54,22 @@ class DataRenderer extends Component
             // Add rank indicator
             $rankIndicator = ($rank <= 3) ? "#$rank " : "";
 
-            $output[] = sprintf(
-                "{$positionColor}%-30s</> %-15s %-12s %-15s %-10s",
-                $rankIndicator . $seederName,
-                number_format($metrics->recordsAdded),
-                round($metrics->executionTime, 4),
-                $metrics->recordsPerSecond,
-                $ratingDisplay
+            $output[] = $this->consoleFormatter->formatLine(
+                "{$positionColor}{{$this->consoleFormatter->constantWidth($rankIndicator . $seederName, 20)}}",
+                $this->consoleFormatter->constantWidth(number_format($metrics->recordsAdded), 20),
+                $this->consoleFormatter->constantWidth(round($metrics->executionTime, 4), 20),
+                $this->consoleFormatter->constantWidth($metrics->recordsPerSecond, 20),
+                $this->consoleFormatter->constantWidth($ratingDisplay, 20),
             );
+
+            /*$output[] = sprintf(
+                "{$positionColor}%-30s</> %-15s %-12s %-15s %-10s",
+                $this->consoleFormatter->constantWidth("$rankIndicator . $seederName", 20),
+                $this->consoleFormatter->constantWidth(number_format($metrics->recordsAdded), 20),
+                $this->consoleFormatter->constantWidth(round($metrics->executionTime, 4), 20),
+                $this->consoleFormatter->constantWidth($metrics->recordsPerSecond, 20),
+                $this->consoleFormatter->constantWidth($ratingDisplay, 20),
+            );*/
 
             $rank++;
         }

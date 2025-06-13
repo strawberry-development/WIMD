@@ -23,8 +23,11 @@ class RecommendationRenderer extends Component
 
         // Output recommendations
         foreach ($recommendations as $index => $recommendation) {
-            $output[] = "<fg=white;options=bold>" . ($index + 1) . ".</> {$recommendation}";
+            $rank = $index + 1;
+            $output[] = $this->consoleFormatter->formatLine("$rank", $recommendation);
         }
+
+        $output[] = "";
 
         return implode("\n", $output);
     }
