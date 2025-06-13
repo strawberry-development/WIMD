@@ -662,42 +662,49 @@ class ConsoleFormatter
      *
      * @param string $text The text to format
      * @param int $width The desired constant width
+     * @param string|null $color The color to apply to the text (e.g., 'red', 'blue', 'green;options=bold')
      * @param string|null $filler The character to use for padding (defaults to class constant)
      * @param string $align Alignment: 'left', 'right', or 'center' (default: 'left')
      * @return string The formatted string with constant width
      */
-    public function constantWidth(string $text, int $width, ?string $filler = null, string $align = 'left'): string
+    public function constantWidth(string $text, int $width, ?string $color = null, ?string $filler = null, string $align = 'left'): string
     {
         if ($filler === null) {
             $filler = self::DEFAULT_FILLER;
         }
 
+        // Apply color to text if specified
+        $coloredText = $color ? $this->colorText($text, $color) : $text;
+
         // Calculate the actual display length (without color tags)
-        $displayText = $this->stripTags($text);
+        $displayText = $this->stripTags($coloredText);
         $currentLength = mb_strlen($displayText, 'UTF-8');
 
         // If text is longer than width, truncate it
         if ($currentLength > $width) {
             // Find where to cut in the original text to preserve color formatting
-            $truncated = $this->truncatePreservingColors($text, $width);
+            $truncated = $this->truncatePreservingColors($coloredText, $width);
             return $truncated;
         }
 
         // If text is shorter, pad it
         $paddingNeeded = $width - $currentLength;
+        $fillerText = $this->colorText(str_repeat($filler, $paddingNeeded), 'gray');
 
         switch ($align) {
             case 'right':
-                return str_repeat($filler, $paddingNeeded) . $text;
+                return $fillerText . $coloredText;
 
             case 'center':
                 $leftPadding = intval($paddingNeeded / 2);
                 $rightPadding = $paddingNeeded - $leftPadding;
-                return str_repeat($filler, $leftPadding) . $text . str_repeat($filler, $rightPadding);
+                $leftFillerText = $this->colorText(str_repeat($filler, $leftPadding), 'gray');
+                $rightFillerText = $this->colorText(str_repeat($filler, $rightPadding), 'gray');
+                return $leftFillerText . $coloredText . $rightFillerText;
 
             case 'left':
             default:
-                return $text . str_repeat($filler, $paddingNeeded);
+                return $coloredText . $fillerText;
         }
     }
 
