@@ -33,7 +33,7 @@ class DataRenderer extends Component
             $this->consoleFormatter->constantWidth("Records", $width),
             $this->consoleFormatter->constantWidth("Time (sec)", $width),
             $this->consoleFormatter->constantWidth("Records/sec", $width),
-            $this->consoleFormatter->constantWidth("Rating", $width),
+            $this->consoleFormatter->constantWidth("Rating", $width - 5),
         );
 
         // Process each seeder
@@ -45,9 +45,7 @@ class DataRenderer extends Component
             $metrics = $seeder['metrics'];
             $seederName = $metrics->getShortName();
             $ratingColor = $this->metric->getRatingColor($metrics->rating);
-            // WIP
             $ratingDisplay = $metrics->rating;
-            // $ratingDisplay = "{$ratingColor}{{$metrics->rating}}";
 
             // Calculate position-based color
             $positionIndex = min(4, floor(($rank - 1) / ($totalSeeders / 5)));
@@ -61,7 +59,7 @@ class DataRenderer extends Component
                 $this->consoleFormatter->constantWidth(number_format($metrics->recordsAdded), $width),
                 $this->consoleFormatter->constantWidth(round($metrics->executionTime, 4), $width),
                 $this->consoleFormatter->constantWidth($metrics->recordsPerSecond, $width),
-                $this->consoleFormatter->constantWidth($ratingDisplay, $width),
+                $this->consoleFormatter->constantWidth($ratingDisplay, $width - 5),
             );
 
             $rank++;

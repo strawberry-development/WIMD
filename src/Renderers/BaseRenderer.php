@@ -62,7 +62,7 @@ abstract class BaseRenderer implements RendererInterface
      * Safely write output with null check and handling for buffered output
      * Adds padding of two spaces to each line
      *
-     * @param string $text
+     * @param string ...$texts
      * @return void
      */
     protected function writeOutput(string ...$texts): void
