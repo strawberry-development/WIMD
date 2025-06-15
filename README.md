@@ -143,6 +143,6 @@ $this->createWithFactory(User::class, 50);
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+The MIT License (MIT). Please see [License File](LICENSE) for more information.
 
 ![Footer](/.github/footer.jpg)
