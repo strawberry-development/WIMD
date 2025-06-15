@@ -9,7 +9,6 @@ use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Terminal;
-use Wimd\Console\Helper\ConsoleFormatter;
 
 class WindProgressBar
 {

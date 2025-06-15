@@ -33,7 +33,6 @@ class ConsoleFormatter
 
     /**
      * Auto-detect terminal width or fall back to default
-     * Fixed version that properly handles Windows environments
      */
     private function detectTerminalWidth(): int
     {
@@ -161,7 +160,14 @@ class ConsoleFormatter
                 $color = $match[2][0] ?: $defaultColor;
                 $text = $match[3][0];
 
-                $colorString = $isBold ? "{$color};options=bold" : $color;
+                if ($isBold) {
+                    // For bold colors, use the format: color;options=bold
+                    $colorString = "{$color};options=bold";
+                } else {
+                    // Regular color without bold
+                    $colorString = $color;
+                }
+
                 $replacement = "<fg={$colorString}>{$text}</>";
 
                 $replacements[] = [
@@ -367,7 +373,6 @@ class ConsoleFormatter
      * Parse color{text} format string into segments array
      * Default color is white if no color specified
      * Supports bold with + prefix: +color{text} or +{text} for bold white
-     * FIXED: Proper handling of color blocks vs PHP variables
      */
     private function parseColorString(string $input): array
     {
@@ -400,8 +405,11 @@ class ConsoleFormatter
                     }
                 }
 
-                // Add the colored segment
-                $colorString = $isBold ? "{$color};options=bold" : $color;
+                if ($isBold) {
+                    $colorString = "{$color};options=bold";
+                } else {
+                    $colorString = $color;
+                }
                 $segments[] = [$text, $colorString];
 
                 $lastEnd = $matchStart + strlen($fullMatch);
@@ -443,17 +451,30 @@ class ConsoleFormatter
                 }
 
             } elseif (is_array($segment) && count($segment) >= 2) {
-                // [text, color] format
+                $color = $segment['color'];
+
+                // Fix +color format by converting to proper bold syntax
+                if (is_string($color) && strpos($color, '+') === 0) {
+                    $actualColor = substr($color, 1); // Remove the + prefix
+                    $color = $actualColor === '' ? 'default;options=bold' : "{$actualColor};options=bold";
+                }
 
                 $normalized[] = [
                     'text' => (string)$segment['text'],
-                    'color' => $segment['color']
+                    'color' => $color
                 ];
             } elseif (is_array($segment) && isset($segment['text'])) {
-                // Associative array format
+                $color = $segment['color'] ?? 'default';
+
+                // Fix +color format by converting to proper bold syntax
+                if (is_string($color) && strpos($color, '+') === 0) {
+                    $actualColor = substr($color, 1); // Remove the + prefix
+                    $color = $actualColor === '' ? 'default;options=bold' : "{$actualColor};options=bold";
+                }
+
                 $normalized[] = [
                     'text' => (string)$segment['text'],
-                    'color' => $segment['color'] ?? 'default'
+                    'color' => $color
                 ];
             }
         }
@@ -550,6 +571,11 @@ class ConsoleFormatter
 
         $color = $color ?? 'default';
 
+        if (strpos($color, '+') === 0) {
+            $actualColor = substr($color, 1); // Remove the + prefix
+            $color = $actualColor === '' ? 'default;options=bold' : "{$actualColor};options=bold";
+        }
+
         // Handle complex color definitions (e.g., "white;bg=red;options=bold")
         return "<fg={$color}>{$text}</>";
     }
@@ -640,21 +666,6 @@ class ConsoleFormatter
     public function getLineWidth(): int
     {
         return $this->lineWidth;
-    }
-
-    public function fillWithChar(string $string, int $limit, ?string $char = null): string
-    {
-        if (is_null($char)) {
-            $char = self::DEFAULT_FILLER;
-        }
-
-        // Truncate the string
-        $truncatedString = substr($string, 0, $limit);
-
-        // Pad the string to make sure it's exactly $limit characters long
-        $paddedString = str_pad($truncatedString, $limit, $char);
-
-        return $paddedString;
     }
 
     /**

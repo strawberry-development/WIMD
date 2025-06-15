@@ -39,7 +39,7 @@ class DataRenderer extends Component
         // Process each seeder
         $rank = 1;
         $totalSeeders = count($this->metric->seeders);
-        $rankingColor = ['green', 'green', 'yellow', 'red', 'red'];
+        $rankingColor = ['+green', 'green', 'yellow', 'red', '+red'];
 
         foreach ($this->metric->seeders as $seederClass => $seeder) {
             $metrics = $seeder['metrics'];
@@ -59,7 +59,7 @@ class DataRenderer extends Component
                 $this->consoleFormatter->constantWidth(number_format($metrics->recordsAdded), $width),
                 $this->consoleFormatter->constantWidth(round($metrics->executionTime, 4), $width),
                 $this->consoleFormatter->constantWidth($metrics->recordsPerSecond, $width),
-                $this->consoleFormatter->constantWidth($ratingDisplay, $width - 5),
+                $this->consoleFormatter->constantWidth($ratingDisplay, $width - 5, $ratingColor),
             );
 
             $rank++;

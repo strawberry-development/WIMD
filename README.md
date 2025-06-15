@@ -117,26 +117,6 @@ class UserSeeder extends WimdSeeder
 }
 ```
 
-### Command
-
-Use the WIMD-specific command:
-
-```bash
-php artisan db:wimd-seed
-```
-
-Specify a seeder:
-
-```bash
-php artisan db:wimd-seed --class=Database\\Seeders\\UserSeeder
-```
-
-Use light mode:
-
-```bash
-php artisan db:wimd-seed --wimd-mode=light
-```
-
 ## Advanced Usage
 
 ### Using the Built-in Batch Methods

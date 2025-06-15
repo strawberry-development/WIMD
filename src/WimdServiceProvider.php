@@ -29,11 +29,5 @@ class WimdServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../config/wimd.php' => config_path('wimd.php'),
         ], 'wimd-config');
-
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                WimdSeedCommand::class,
-            ]);
-        }
     }
 }
