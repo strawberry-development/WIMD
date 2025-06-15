@@ -19,7 +19,7 @@ class PerformanceRenderer extends Component
     {
         $output = [];
 
-        $output[] = $this->createSectionHeader("PERFORMANCE SUMMARY");
+        $output[] = $this->createSectionHeader("Performance summary.");
 
         $output[] = $this->consoleFormatter->formatLine("Execution Time", "{$this->metric->formatted_time}");
         $output[] = $this->consoleFormatter->formatLine("Records Added gray{(~{$this->metric->time_per_record} ms/record)}", "{$this->metric->total_records}");
@@ -54,7 +54,7 @@ class PerformanceRenderer extends Component
         });
         // Take top 5 for clarity
         $seeders = array_slice($this->metric->seeders, 0, 5, true);
-        $output[] = $this->createSectionHeader("TOP SEEDERS BY PERFORMANCE");
+        $output[] = $this->createSectionHeader("Top seeders by performance.");
 
         $chartWidth = 60; // Slightly increased for better visualization
         $nameWidth = 28;  // Name width from original

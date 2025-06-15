@@ -73,7 +73,7 @@ class SystemRenderer extends Component
         $output = [];
 
         // System information
-        $output[] = $this->createSectionHeader("SYSTEM INFORMATION");
+        $output[] = $this->createSectionHeader("System information.");
 
         // Enhanced system information
         $output[] = $this->consoleFormatter->formatLine("Operating System",  "{$sysInfo['os']} gray{({$sysInfo['php_os']})}");
@@ -120,7 +120,7 @@ class SystemRenderer extends Component
     {
         $output = [];
 
-        $output[] = $this->createSectionHeader("SYSTEM HEALTH CHECK");
+        $output[] = $this->createSectionHeader("System health check.");
         // Group checks by category
         $dbChecks = $this->performDatabaseChecks();
         $fileSystemChecks = $this->performFileSystemChecks();

@@ -121,7 +121,7 @@ abstract class BaseRenderer implements RendererInterface
      * @param string $title
      * @return string
      */
-    public function createTitleBox(string $title = "WIMD SEEDING REPORT"): string
+    public function createTitleBox(string $title = "Wimd seeding report."): string
     {
         return $this->consoleFormatter->bubble($title);
     }

@@ -18,7 +18,7 @@ class DataRenderer extends Component
     {
         $output = [];
 
-        $output[] = $this->createSectionHeader("DETAILED SEEDER METRICS");
+        $output[] = $this->createSectionHeader("Detailed seeder metrics.");
 
         // Sort results by records per second (descending)
         uasort($this->metric->seeders, function ($a, $b) {

@@ -245,17 +245,23 @@ class ConsoleFormatter
         $segmentCount = count($processedSegments);
         if ($segmentCount <= 1) {
             $segment = $processedSegments[0] ?? ['text' => '', 'color' => '', 'raw_length' => 0];
-            $remainingSpace = $this->lineWidth - $segment['raw_length'];
-            $filler = str_repeat($opts['filler'], max(0, $remainingSpace));
+            $remainingSpace = max(0, $this->lineWidth - $segment['raw_length']); // Ensure non-negative
+            $filler = str_repeat($opts['filler'], $remainingSpace);
 
             $text = empty($segment['color']) ? $segment['text'] : $this->colorText($segment['text'], $segment['color']);
             return $text . $this->colorText($filler, $opts['filler_color']) . ($opts['newline'] ? "\n" : "");
         }
 
         $fillerSections = $segmentCount - 1;
-
         $totalPaddingSpace = $fillerSections * self::PADDING * 2;
-        $availableFillerSpace = $this->lineWidth - $totalContentLength - $totalPaddingSpace;
+        $availableFillerSpace = max(0, $this->lineWidth - $totalContentLength - $totalPaddingSpace); // Ensure non-negative
+
+        // If content already exceeds line width, truncate segments
+        if ($totalContentLength + $totalPaddingSpace > $this->lineWidth) {
+            $processedSegments = $this->truncateSegmentsToFit($processedSegments, $this->lineWidth - $totalPaddingSpace);
+            $totalContentLength = array_sum(array_column($processedSegments, 'raw_length'));
+            $availableFillerSpace = 0;
+        }
 
         // Distribute filler space
         $fillerDistribution = $this->calculateFillerDistribution(
@@ -267,7 +273,7 @@ class ConsoleFormatter
         // Build the formatted line
         $result = '';
         for ($i = 0; $i < $segmentCount; $i++) {
-            $segment = $processedSegments[$i];
+            $segment = $processedSegments[$i] ?? ['text' => '', 'color' => '', 'raw_length' => 0];
 
             // Add segment text (already colored if it's a group)
             if (empty($segment['color'])) {
@@ -278,8 +284,8 @@ class ConsoleFormatter
 
             // Add filler between segments (except after last segment)
             if ($i < $segmentCount - 1) {
-                $fillerCount = $fillerDistribution[$i] ?? $opts['min_filler_between'];
-                $filler = str_repeat(" ", self::PADDING) . str_repeat($opts['filler'], max($opts['min_filler_between'], $fillerCount)) . str_repeat(" ", self::PADDING);
+                $fillerCount = $fillerDistribution[$i] ?? max(0, $opts['min_filler_between']);
+                $filler = str_repeat(" ", self::PADDING) . str_repeat($opts['filler'], max(0, $fillerCount)) . str_repeat(" ", self::PADDING);
                 $result .= $this->colorText($filler, $opts['filler_color']);
             }
         }
@@ -332,17 +338,28 @@ class ConsoleFormatter
         // Calculate available space for fillers
         $segmentCount = count($normalizedSegments);
         $fillerSections = max(1, $segmentCount - 1);
-        $availableFillerSpace = $this->lineWidth - $totalContentLength - self::PADDING * 2;
+        $totalPaddingSpace = ($segmentCount > 1) ? ($segmentCount - 1) * self::PADDING * 2 : 0;
+        $availableFillerSpace = max(0, $this->lineWidth - $totalContentLength - $totalPaddingSpace); // Ensure non-negative
 
         // Handle single segment case
         if ($segmentCount === 1) {
             $segment = $normalizedSegments[0];
-            $remainingSpace = $this->lineWidth - mb_strlen($this->stripTags($segment['text']), 'UTF-8');
-            $filler = str_repeat($opts['filler'], max(0, $remainingSpace));
+            $segmentLength = mb_strlen($this->stripTags($segment['text']), 'UTF-8');
+            $remainingSpace = max(0, $this->lineWidth - $segmentLength); // Ensure non-negative
+            $filler = str_repeat($opts['filler'], $remainingSpace);
 
             return $this->colorText($segment['text'], $segment['color']) .
                 $this->colorText($filler, $opts['filler_color']) .
                 ($opts['newline'] ? "\n" : "");
+        }
+
+        // If content already exceeds line width, truncate segments
+        if ($totalContentLength + $totalPaddingSpace > $this->lineWidth) {
+            $normalizedSegments = $this->truncateSegmentsToFit($normalizedSegments, $this->lineWidth - $totalPaddingSpace);
+            $totalContentLength = array_sum(array_map(function ($seg) {
+                return mb_strlen($this->stripTags($seg['text']), 'UTF-8');
+            }, $normalizedSegments));
+            $availableFillerSpace = 0;
         }
 
         // Distribute filler space
@@ -355,13 +372,13 @@ class ConsoleFormatter
         // Build the formatted line
         $result = '';
         for ($i = 0; $i < $segmentCount; $i++) {
-            $segment = $normalizedSegments[$i];
+            $segment = $normalizedSegments[$i] ?? ['text' => '', 'color' => 'default'];
             $result .= $this->colorText($segment['text'], $segment['color']);
 
             // Add filler between segments (except after last segment)
             if ($i < $segmentCount - 1) {
-                $fillerCount = $fillerDistribution[$i] ?? $opts['min_filler_between'];
-                $filler = str_repeat(" ", self::PADDING) . str_repeat($opts['filler'], max($opts['min_filler_between'], $fillerCount)) . str_repeat(" ", self::PADDING);
+                $fillerCount = $fillerDistribution[$i] ?? max(0, $opts['min_filler_between']);
+                $filler = str_repeat(" ", self::PADDING) . str_repeat($opts['filler'], max(0, $fillerCount)) . str_repeat(" ", self::PADDING);
                 $result .= $this->colorText($filler, $opts['filler_color']);
             }
         }
@@ -488,16 +505,17 @@ class ConsoleFormatter
     private function calculateFillerDistribution(int $totalSpace, int $sections, array $opts): array
     {
         if ($totalSpace <= 0 || $sections <= 0) {
-            return array_fill(0, $sections, $opts['min_filler_between']);
+            return array_fill(0, max(1, $sections), max(0, $opts['min_filler_between']));
         }
 
         $distribution = [];
+        $minFiller = max(0, $opts['min_filler_between']);
 
         switch ($opts['distribution']) {
             case 'even':
                 // Distribute evenly
-                $baseAmount = intval($totalSpace / $sections);
-                $remainder = $totalSpace % $sections;
+                $baseAmount = max($minFiller, intval($totalSpace / $sections));
+                $remainder = max(0, $totalSpace % $sections);
 
                 for ($i = 0; $i < $sections; $i++) {
                     $distribution[$i] = $baseAmount + ($i < $remainder ? 1 : 0);
@@ -506,27 +524,27 @@ class ConsoleFormatter
 
             case 'left':
                 // Most space at the beginning
-                $distribution[0] = max($opts['min_filler_between'], $totalSpace - ($sections - 1) * $opts['min_filler_between']);
+                $distribution[0] = max($minFiller, $totalSpace - ($sections - 1) * $minFiller);
                 for ($i = 1; $i < $sections; $i++) {
-                    $distribution[$i] = $opts['min_filler_between'];
+                    $distribution[$i] = $minFiller;
                 }
                 break;
 
             case 'right':
                 // Most space at the end
                 for ($i = 0; $i < $sections - 1; $i++) {
-                    $distribution[$i] = $opts['min_filler_between'];
+                    $distribution[$i] = $minFiller;
                 }
-                $distribution[$sections - 1] = max($opts['min_filler_between'], $totalSpace - ($sections - 1) * $opts['min_filler_between']);
+                $distribution[$sections - 1] = max($minFiller, $totalSpace - ($sections - 1) * $minFiller);
                 break;
 
             case 'center':
                 // Most space in the middle
                 $middleIndex = intval($sections / 2);
-                $middleSpace = max($opts['min_filler_between'], $totalSpace - ($sections - 1) * $opts['min_filler_between']);
+                $middleSpace = max($minFiller, $totalSpace - ($sections - 1) * $minFiller);
 
                 for ($i = 0; $i < $sections; $i++) {
-                    $distribution[$i] = $i === $middleIndex ? $middleSpace : $opts['min_filler_between'];
+                    $distribution[$i] = $i === $middleIndex ? $middleSpace : $minFiller;
                 }
                 break;
 
@@ -534,14 +552,14 @@ class ConsoleFormatter
             default:
                 // Smart distribution: more space between distant elements
                 if ($sections === 1) {
-                    $distribution[0] = $totalSpace;
+                    $distribution[0] = max(0, $totalSpace);
                 } elseif ($sections === 2) {
                     // Two segments: most space between them
-                    $distribution[0] = $totalSpace;
+                    $distribution[0] = max(0, $totalSpace);
                 } else {
                     // Multiple segments: distribute with preference for larger gaps
-                    $baseAmount = max($opts['min_filler_between'], intval($totalSpace / $sections));
-                    $remainder = $totalSpace - ($baseAmount * $sections);
+                    $baseAmount = max($minFiller, intval($totalSpace / $sections));
+                    $remainder = max(0, $totalSpace - ($baseAmount * $sections));
 
                     for ($i = 0; $i < $sections; $i++) {
                         $distribution[$i] = $baseAmount;
@@ -555,6 +573,21 @@ class ConsoleFormatter
                     }
                 }
                 break;
+        }
+
+        // Final safety check - ensure no negative values and total doesn't exceed totalSpace
+        $actualTotal = 0;
+        foreach ($distribution as $i => $value) {
+            $distribution[$i] = max(0, $value);
+            $actualTotal += $distribution[$i];
+        }
+
+        // If somehow we exceeded totalSpace, proportionally reduce
+        if ($actualTotal > $totalSpace) {
+            $ratio = $totalSpace / $actualTotal;
+            foreach ($distribution as $i => $value) {
+                $distribution[$i] = max(0, intval($value * $ratio));
+            }
         }
 
         return $distribution;
@@ -752,4 +785,58 @@ class ConsoleFormatter
 
         return $result;
     }
+
+    /**
+     * Truncate segments when they exceed available space to ensure line width is never exceeded
+     *
+     * @param array $segments Array of segments with 'text', 'color', and 'raw_length' keys
+     * @param int $maxTotalLength Maximum total length allowed for all segments combined
+     * @return array Truncated segments that fit within the specified length
+     */
+    private function truncateSegmentsToFit(array $segments, int $maxTotalLength): array
+    {
+        if ($maxTotalLength <= 0) {
+            return [];
+        }
+
+        $totalLength = array_sum(array_column($segments, 'raw_length'));
+
+        if ($totalLength <= $maxTotalLength) {
+            return $segments;
+        }
+
+        // Proportionally reduce each segment
+        $truncatedSegments = [];
+        $remainingLength = $maxTotalLength;
+
+        foreach ($segments as $i => $segment) {
+            if ($remainingLength <= 0) {
+                break;
+            }
+
+            $targetLength = min($segment['raw_length'], $remainingLength);
+
+            if ($targetLength < $segment['raw_length']) {
+                // Truncate this segment
+                $truncatedText = $this->truncatePreservingColors(
+                    empty($segment['color']) ? $segment['text'] : $this->colorText($segment['text'], $segment['color']),
+                    $targetLength
+                );
+
+                $truncatedSegments[] = [
+                    'text' => $truncatedText,
+                    'color' => '', // Already colored if needed
+                    'raw_length' => $targetLength
+                ];
+            } else {
+                $truncatedSegments[] = $segment;
+            }
+
+            $remainingLength -= $targetLength;
+        }
+
+        return $truncatedSegments;
+    }
+
+
 }

@@ -19,7 +19,7 @@ class RecommendationRenderer extends Component
         $recommendations = $this->generateRecommendations();
         $output = [];
 
-        $output[] = $this->createSectionHeader("RECOMMENDATIONS");
+        $output[] = $this->createSectionHeader("Recommendations.");
 
         // Output recommendations
         foreach ($recommendations as $index => $recommendation) {
